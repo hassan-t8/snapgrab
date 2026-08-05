@@ -1,26 +1,202 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --color-brand-50: #f2f0ff;
+  --color-brand-100: #e6e2ff;
+  --color-brand-200: #cfc7ff;
+  --color-brand-300: #b0a1ff;
+  --color-brand-400: #8f74ff;
+  --color-brand-500: #7048f0;
+  --color-brand-600: #5a2fd6;
+  --color-brand-700: #4823a8;
+  --color-brand-800: #331a78;
+  --color-brand-900: #221152;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-accent-400: #38e0d0;
+  --color-accent-500: #14c8be;
+  --color-accent-600: #0aa39c;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-blob: blob 18s ease-in-out infinite;
+  --animate-marquee: marquee 34s linear infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(28px, -32px) scale(1.08); }
+    66% { transform: translate(-22px, 18px) scale(0.94); }
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f5fb;
+  --fg: #14121f;
+  --fg-muted: #5c5872;
+  --line: #e7e4f2;
+  --card: #ffffff;
+  --card-glass: rgba(255, 255, 255, 0.74);
+}
+
+.dark {
+  --bg: #07060f;
+  --bg-soft: #0d0b1a;
+  --fg: #f4f2ff;
+  --fg-muted: #a9a3c4;
+  --line: rgba(255, 255, 255, 0.09);
+  --card: #110e21;
+  --card-glass: rgba(22, 18, 43, 0.66);
+}
+
+@layer base {
+  * { border-color: var(--line); }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--color-brand-500); color: #fff; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg-soft); }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-brand-500) 55%, transparent);
+    border-radius: 99px;
+    border: 2px solid var(--bg-soft);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-brand-500); }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-400);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility text-muted { color: var(--fg-muted); }
+
+@utility surface {
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+@utility glass {
+  background: var(--card-glass);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--line);
+}
+
+@utility gradient-text {
+  background: linear-gradient(100deg, var(--color-brand-400), var(--color-accent-400) 55%, var(--color-brand-300));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility glow-ring {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-brand-500) 35%, transparent),
+    0 18px 60px -20px color-mix(in oklab, var(--color-brand-500) 60%, transparent);
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* animated conic border used on the hero downloader card */
+.aurora-border {
+  position: relative;
+  isolation: isolate;
+}
+.aurora-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--angle),
+    var(--color-brand-500),
+    var(--color-accent-400),
+    var(--color-brand-300),
+    var(--color-brand-600),
+    var(--color-brand-500)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-angle 6s linear infinite;
+  z-index: -1;
+}
+@keyframes spin-angle {
+  to { --angle: 360deg; }
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--fg) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--fg) 7%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+.prose-article h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 2rem 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+.prose-article h3 { font-size: 1.15rem; font-weight: 700; margin: 1.5rem 0 0.5rem; }
+.prose-article p { margin: 0.9rem 0; line-height: 1.8; color: var(--fg-muted); }
+.prose-article ul, .prose-article ol { margin: 0.9rem 0 0.9rem 1.25rem; color: var(--fg-muted); line-height: 1.8; }
+.prose-article li { margin: 0.35rem 0; }
+.prose-article ul { list-style: disc; }
+.prose-article ol { list-style: decimal; }
+.prose-article strong { color: var(--fg); font-weight: 650; }
+.prose-article blockquote {
+  border-left: 3px solid var(--color-brand-500);
+  padding: 0.4rem 0 0.4rem 1rem;
+  margin: 1.25rem 0;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+.prose-article code {
+  background: var(--bg-soft);
+  padding: 0.15em 0.4em;
+  border-radius: 6px;
+  font-size: 0.9em;
 }

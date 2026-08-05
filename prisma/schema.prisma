@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Admin / staff accounts for the dashboard
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("admin") // admin | editor
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+}
+
+/// One row per unique anonymous visitor (cookie based), enriched with request data
+model Visitor {
+  id          String   @id @default(cuid())
+  anonId      String   @unique
+  ip          String
+  country     String?
+  city        String?
+  region      String?
+  userAgent   String
+  browser     String?
+  os          String?
+  device      String?
+  referrer    String?
+  landingPath String?
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @updatedAt
+  visits      Int      @default(1)
+  downloads   Download[]
+  pageViews   PageView[]
+
+  @@index([ip])
+  @@index([lastSeen])
+}
+
+/// Every page hit — the "foot steps" trail
+model PageView {
+  id        String   @id @default(cuid())
+  visitorId String
+  visitor   Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  path      String
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  @@index([visitorId])
+  @@index([createdAt])
+}
+
+/// Every resolve/download attempt
+model Download {
+  id          String   @id @default(cuid())
+  visitorId   String?
+  visitor     Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  platform    String   // youtube | instagram | facebook | tiktok | ...
+  sourceUrl   String
+  title       String?
+  author      String?
+  thumbnail   String?
+  durationSec Int?
+  formatId    String?
+  quality     String?
+  ext         String?
+  kind        String?  // video | audio | image
+  sizeBytes   Int?
+  status      String   @default("resolved") // resolved | downloaded | failed
+  errorMsg    String?
+  ip          String?
+  country     String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([platform])
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// RapidAPI (or any upstream) call log for quota / cost tracking
+model ApiCall {
+  id         String   @id @default(cuid())
+  provider   String   // rapidapi host
+  endpoint   String
+  platform   String?
+  status     Int
+  ok         Boolean  @default(true)
+  latencyMs  Int
+  cached     Boolean  @default(false)
+  errorMsg   String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([provider])
+}
+
+/// Cached upstream responses so repeated links don't burn RapidAPI quota
+model ResolveCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  platform  String
+  payload   String
+  hits      Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model BlogPost {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  title     String
+  excerpt   String
+  content   String
+  cover     String?
+  tags      String    @default("")
+  author    String    @default("SnapGrab Team")
+  published Boolean   @default(true)
+  views     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([published, createdAt])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  ip        String?
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+/// Key/value site settings editable from the admin panel
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
