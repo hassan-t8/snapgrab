@@ -5,6 +5,7 @@ import { resolveMedia, ProviderError } from "@/lib/provider";
 import { touchVisitor } from "@/lib/tracking";
 import { rateLimit } from "@/lib/ratelimit";
 import { detectPlatform } from "@/lib/platforms";
+import { isServiceEnabled } from "@/lib/services";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,15 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "Please paste a valid link." }, { status: 400 });
+  }
+
+  // an admin can switch a platform off — a saved link must not bypass that
+  const requested = detectPlatform(parsed.data.url);
+  if (requested && !(await isServiceEnabled("platform", requested.id))) {
+    return NextResponse.json(
+      { ok: false, error: `The ${requested.name} downloader is temporarily unavailable. Please try again later.`, code: "DISABLED" },
+      { status: 503 },
+    );
   }
 
   try {

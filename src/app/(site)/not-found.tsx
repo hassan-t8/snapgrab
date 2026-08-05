@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft, Compass } from "lucide-react";
-import { PLATFORMS } from "@/lib/platforms";
+import { getEnabledPlatforms } from "@/lib/services";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const platforms = (await getEnabledPlatforms()).slice(0, 6);
   return (
     <section className="relative grid min-h-[70vh] place-items-center px-4 py-20 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-xl text-center">
@@ -30,7 +31,7 @@ export default function NotFound() {
         <div className="mt-10">
           <p className="text-xs font-bold uppercase tracking-wider text-muted">Popular downloaders</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            {PLATFORMS.slice(0, 6).map((p) => (
+            {platforms.map((p) => (
               <Link
                 key={p.id}
                 href={`/download/${p.slug}`}

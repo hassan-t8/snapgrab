@@ -8,6 +8,10 @@ import { Aurora, FAQ, Features, SectionHead, Steps } from "@/components/sections
 import { Reveal } from "@/components/motion";
 import { PLATFORMS } from "@/lib/platforms";
 import { breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
+import { getEnabledPlatforms, getServiceState } from "@/lib/services";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return PLATFORMS.map((p) => ({ platform: p.slug }));
@@ -17,6 +21,10 @@ export async function generateMetadata({ params }: PageProps<"/download/[platfor
   const { platform } = await params;
   const p = PLATFORMS.find((x) => x.slug === platform);
   if (!p) return { title: "Downloader not found" };
+  if (!(await getServiceState("platform", p.id)).enabled) {
+    return { title: `${p.name} downloader — temporarily unavailable`, robots: { index: false, follow: true } };
+  }
+
   return {
     title: `${p.headline} — Free, Fast, No Watermark`,
     description: p.description,
@@ -49,7 +57,25 @@ export default async function PlatformPage({ params }: PageProps<"/download/[pla
   const p = PLATFORMS.find((x) => x.slug === platform);
   if (!p) notFound();
 
-  const others = PLATFORMS.filter((x) => x.id !== p.id).slice(0, 6);
+  const state = await getServiceState("platform", p.id);
+  const live = await getEnabledPlatforms();
+
+  if (!state.enabled) {
+    return (
+      <ServiceUnavailable
+        name={`The ${p.name} downloader`}
+        note={state.note}
+        alternatives={live.slice(0, 4).map((o) => ({
+          href: `/download/${o.slug}`,
+          label: o.name,
+          sub: o.blurb,
+          color: o.color,
+        }))}
+      />
+    );
+  }
+
+  const others = live.filter((x) => x.id !== p.id).slice(0, 6);
 
   return (
     <>

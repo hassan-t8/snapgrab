@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Download, Mail, Shield } from "lucide-react";
 import { BrandGithub, BrandInstagram, BrandX } from "./BrandIcons";
-import { PLATFORMS } from "@/lib/platforms";
-import { TOOLS } from "@/lib/tools";
+import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import Newsletter from "./Newsletter";
 
-export default function Footer() {
+export default async function Footer() {
   const year = new Date().getFullYear();
+  const [TOOLS, PLATFORMS] = await Promise.all([getEnabledTools(), getEnabledPlatforms()]);
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)]">
       <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[52rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-[100px]" />

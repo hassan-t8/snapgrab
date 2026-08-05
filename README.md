@@ -184,6 +184,17 @@ Every tool below is generated from a single registry entry in [`src/lib/tools.ts
 
 > **Secure-context note:** the hash generator needs `crypto.subtle`, which browsers only expose over HTTPS or on localhost. Over plain `http://` on a LAN IP it shows a clear notice instead of failing. Everything else works in both contexts.
 
+### Service switches
+
+Any of the 41 services (27 tools + 14 downloaders) can be switched off from **Admin → Services** without a deploy. Turning one off:
+
+- removes it from the navbar, footer, home page, tools index and the 404 page's suggestions
+- replaces its page with a `noindex` "temporarily unavailable" notice carrying your own message, plus links to live alternatives
+- drops it from `sitemap.xml`
+- makes the API return **503**, so a bookmarked link or a saved `curl` cannot bypass the switch
+
+Toggles are **opt-out** — a service with no database row is enabled, so adding a new tool never needs a migration or seed to go live. Changes apply on the next request; there is no cache to clear.
+
 ### Content and trust pages
 
 Blog with markdown CMS · About · Contact · FAQ · Privacy policy · Terms of service · DMCA — all written to describe what the code actually does, which is what AdSense review looks for.
@@ -264,6 +275,7 @@ Verify locally with `curl localhost:3000/sitemap.xml` or paste any page into Goo
 | **Visitors** | Unique visitors with IP, geo, device, browser and visit counts; searchable by IP, country or city |
 | **Visitor detail** | The full footsteps trail — every page view in order, plus that visitor's download history |
 | **Tools usage** | Runs per tool across all 27 tools, files processed, bytes in/out and average size saving |
+| **Services** | One switch per tool and downloader — hide any service from the whole site, with an optional visitor-facing message |
 | **API usage** | Call volume, billable vs cached calls, cache hit rate, latency, failures, per-provider and per-platform breakdown |
 | **Blog posts** | Create, edit, publish/unpublish, delete — with live markdown preview |
 | **Messages** | Contact inbox with reply, mark-handled and delete |
@@ -289,6 +301,7 @@ Auth is a JWT in an httpOnly cookie, 8-hour expiry, bcrypt-hashed passwords, bru
 | `POST`/`DELETE` | `/api/admin/blogs` | Blog CRUD (auth required) |
 | `PATCH`/`DELETE` | `/api/admin/messages` | Inbox management (auth required) |
 | `POST` | `/api/admin/settings` | Site settings (auth required) |
+| `PATCH` | `/api/admin/services` | Enable/disable services in bulk (auth required) |
 
 ---
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { touchVisitor } from "@/lib/tracking";
 import { rateLimit } from "@/lib/ratelimit";
 import { TOOL_MAP } from "@/lib/tools";
+import { isServiceEnabled } from "@/lib/services";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ export async function POST(req: Request) {
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success || !TOOL_MAP[parsed.data.tool]) {
       return NextResponse.json({ ok: false }, { status: 400 });
+    }
+
+    if (!(await isServiceEnabled("tool", parsed.data.tool))) {
+      return NextResponse.json({ ok: false, error: "Service disabled" }, { status: 503 });
     }
 
     const ctx = await touchVisitor();

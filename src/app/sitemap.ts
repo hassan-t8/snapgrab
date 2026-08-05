@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
-import { PLATFORMS } from "@/lib/platforms";
-import { TOOLS } from "@/lib/tools";
+import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [TOOLS, PLATFORMS] = await Promise.all([getEnabledTools(), getEnabledPlatforms()]);
+
   const posts = await prisma.blogPost
     .findMany({ where: { published: true }, select: { slug: true, updatedAt: true } })
     .catch(() => []);

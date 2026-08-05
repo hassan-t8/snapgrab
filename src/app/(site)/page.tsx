@@ -14,7 +14,7 @@ import {
   Testimonials,
 } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
-import { TOOLS } from "@/lib/tools";
+import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import { jsonLd, faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { prisma } from "@/lib/prisma";
 
@@ -69,7 +69,7 @@ async function getStats() {
 }
 
 export default async function HomePage() {
-  const s = await getStats();
+  const [s, TOOLS, livePlatforms] = await Promise.all([getStats(), getEnabledTools(), getEnabledPlatforms()]);
 
   return (
     <>
@@ -80,7 +80,7 @@ export default async function HomePage() {
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-4 py-1.5 text-xs font-semibold text-brand-300">
               <Sparkles className="h-3.5 w-3.5" />
-              14 platforms · auto link detection · no signup
+              {livePlatforms.length} platforms · auto link detection · no signup
             </span>
           </Reveal>
 
@@ -116,7 +116,7 @@ export default async function HomePage() {
         </div>
 
         <div className="mx-auto mt-10 max-w-5xl">
-          <PlatformMarquee />
+          <PlatformMarquee platforms={livePlatforms} />
         </div>
       </section>
 
@@ -127,7 +127,7 @@ export default async function HomePage() {
             stats={[
               { label: "Downloads served", value: s.downloads, suffix: "+" },
               { label: "Visitors tracked", value: s.visitors, suffix: "+" },
-              { label: "Platforms supported", value: 14 },
+              { label: "Platforms supported", value: livePlatforms.length },
               { label: "Guides published", value: s.posts },
             ]}
           />
@@ -147,7 +147,7 @@ export default async function HomePage() {
             sub="Each platform has a dedicated page with the formats it supports, its own guide and its own FAQ."
           />
           <div className="mt-12">
-            <PlatformGrid />
+            <PlatformGrid platforms={livePlatforms} />
           </div>
         </div>
       </section>

@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Download, Menu, X } from "lucide-react";
 import { PLATFORMS } from "@/lib/platforms";
 import { TOOLS } from "@/lib/tools";
+import type { ServiceSummary } from "@/lib/services";
 import ThemeToggle from "./ThemeToggle";
 
 const LINKS = [
@@ -17,7 +18,10 @@ const LINKS = [
   { href: "/contact", label: "Contact" },
 ];
 
-export default function Navbar() {
+export default function Navbar({ services }: { services?: ServiceSummary }) {
+  const platforms = services ? PLATFORMS.filter((p) => services.platformIds.includes(p.id)) : PLATFORMS;
+  const tools = services ? TOOLS.filter((t) => services.toolSlugs.includes(t.slug)) : TOOLS;
+
   const [open, setOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -92,7 +96,7 @@ export default function Navbar() {
                   className="absolute left-1/2 top-full z-50 w-[560px] -translate-x-1/2 pt-3"
                 >
                   <div className="glass grid grid-cols-2 gap-1 rounded-2xl p-2 shadow-2xl">
-                    {PLATFORMS.map((p) => (
+                    {platforms.map((p) => (
                       <Link
                         key={p.id}
                         href={`/download/${p.slug}`}
@@ -173,7 +177,7 @@ export default function Navbar() {
               ))}
               <p className="px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-wider text-muted">Tools</p>
               <div className="grid grid-cols-2 gap-1">
-                {TOOLS.map((t) => (
+                {tools.map((t) => (
                   <Link
                     key={t.slug}
                     href={`/tools/${t.slug}`}
@@ -187,7 +191,7 @@ export default function Navbar() {
               </div>
               <p className="px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-wider text-muted">Downloaders</p>
               <div className="grid grid-cols-2 gap-1">
-                {PLATFORMS.map((p, i) => (
+                {platforms.map((p, i) => (
                   <motion.div
                     key={p.id}
                     initial={{ opacity: 0, y: 8 }}

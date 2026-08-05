@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { touchVisitor } from "@/lib/tracking";
 import { rateLimit } from "@/lib/ratelimit";
+import { isServiceEnabled } from "@/lib/services";
+import { PLATFORM_MAP } from "@/lib/platforms";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +46,13 @@ export async function GET(req: Request) {
   const source = params.get("source") ?? "";
 
   if (!target) return NextResponse.json({ ok: false, error: "Missing url." }, { status: 400 });
+
+  if (PLATFORM_MAP[platform] && !(await isServiceEnabled("platform", platform))) {
+    return NextResponse.json(
+      { ok: false, error: "That downloader is temporarily unavailable." },
+      { status: 503 },
+    );
+  }
 
   let remote: URL;
   try {

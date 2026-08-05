@@ -4,13 +4,14 @@ import { ArrowRight, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, 
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
-import { TOOLS, TOOL_CATEGORIES, toolsByCategory } from "@/lib/tools";
+import { TOOL_CATEGORIES } from "@/lib/tools";
+import { getEnabledTools } from "@/lib/services";
 import { siteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Free Online Tools — 27 converters, generators and downloaders",
+  title: "Free Online Tools — converters, generators and downloaders",
   description:
-    "27 free browser tools: image converter, compressor and resizer, PDF merge and split, QR code and password generators, JSON formatter, word counter, video to MP3 and more. No signup, nothing uploaded.",
+    "Free browser tools: image converter, compressor and resizer, PDF merge and split, QR code and password generators, JSON formatter, word counter, video to MP3 and more. No signup, nothing uploaded.",
   keywords: [
     "free online tools",
     "image converter",
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/tools" },
   openGraph: {
     title: "Free Online Tools — SnapGrab",
-    description: "27 free tools for images, PDFs, text and media — everything runs in your browser, nothing is uploaded.",
+    description: "Free tools for images, PDFs, text and media — everything runs in your browser, nothing is uploaded.",
     url: "/tools",
   },
 };
@@ -65,7 +66,12 @@ const TOOLS_FAQ = [
   },
 ];
 
-export default function ToolsIndex() {
+export const dynamic = "force-dynamic";
+
+export default async function ToolsIndex() {
+  const TOOLS = await getEnabledTools();
+  const toolsByCategory = (cat: (typeof TOOL_CATEGORIES)[number]) => TOOLS.filter((t) => t.category === cat);
+
   return (
     <>
       <section className="relative overflow-hidden px-4 pb-10 pt-14 sm:px-6 sm:pt-20 lg:px-8">

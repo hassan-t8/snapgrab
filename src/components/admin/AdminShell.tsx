@@ -15,6 +15,7 @@ import {
   Mail,
   Menu,
   Settings,
+  ToggleLeft,
   Users,
   Wrench,
   X,
@@ -31,6 +32,7 @@ const NAV = [
   { href: "/admin/blogs", label: "Blog posts", icon: FileText },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/subscribers", label: "Subscribers", icon: BarChart3 },
+  { href: "/admin/services", label: "Services", icon: ToggleLeft },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

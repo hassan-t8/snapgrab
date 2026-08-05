@@ -12,6 +12,10 @@ import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import { TOOLS, TOOL_MAP, relatedTools } from "@/lib/tools";
 import { breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
+import { getEnabledTools, getServiceState } from "@/lib/services";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return TOOLS.map((t) => ({ slug: t.slug }));
@@ -21,6 +25,11 @@ export async function generateMetadata({ params }: PageProps<"/tools/[slug]">): 
   const { slug } = await params;
   const tool = TOOL_MAP[slug];
   if (!tool) return { title: "Tool not found", robots: { index: false, follow: false } };
+
+  // a disabled tool must not stay in the index
+  if (!(await getServiceState("tool", tool.slug)).enabled) {
+    return { title: `${tool.name} — temporarily unavailable`, robots: { index: false, follow: true } };
+  }
 
   const image = ogImage({ title: tool.name, subtitle: tool.tagline, badge: `${tool.category} tool` });
 
@@ -50,7 +59,25 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
   const tool = TOOL_MAP[slug];
   if (!tool) notFound();
 
-  const related = relatedTools(tool);
+  const state = await getServiceState("tool", tool.slug);
+  if (!state.enabled) {
+    const live = (await getEnabledTools()).filter((t) => t.category === tool.category || tool.related.includes(t.slug));
+    return (
+      <ServiceUnavailable
+        name={tool.name}
+        note={state.note}
+        alternatives={live.slice(0, 4).map((t) => ({
+          href: `/tools/${t.slug}`,
+          label: t.name,
+          sub: t.tagline,
+          color: t.color,
+        }))}
+      />
+    );
+  }
+
+  const enabledSlugs = new Set((await getEnabledTools()).map((t) => t.slug));
+  const related = relatedTools(tool).filter((r) => enabledSlugs.has(r.slug));
 
   return (
     <>

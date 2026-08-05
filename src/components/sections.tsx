@@ -16,7 +16,7 @@ import {
   Star,
   Wand2,
 } from "lucide-react";
-import { PLATFORMS } from "@/lib/platforms";
+import { PLATFORMS, type Platform } from "@/lib/platforms";
 import { Reveal, StaggerGroup, StaggerItem } from "./motion";
 
 /* ---------------------------------- hero background ---------------------------------- */
@@ -92,8 +92,8 @@ export function StatsStrip({
 
 /* ---------------------------------- platform marquee ---------------------------------- */
 
-export function PlatformMarquee() {
-  const row = [...PLATFORMS, ...PLATFORMS];
+export function PlatformMarquee({ platforms = PLATFORMS }: { platforms?: Platform[] }) {
+  const row = [...platforms, ...platforms];
   return (
     <div className="relative overflow-hidden py-2 [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]">
       <div className="flex w-max animate-marquee gap-3">
@@ -113,10 +113,10 @@ export function PlatformMarquee() {
 
 /* ---------------------------------- platform grid ---------------------------------- */
 
-export function PlatformGrid() {
+export function PlatformGrid({ platforms = PLATFORMS }: { platforms?: Platform[] }) {
   return (
     <StaggerGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {PLATFORMS.map((p) => (
+      {platforms.map((p) => (
         <StaggerItem key={p.id}>
           <Link href={`/download/${p.slug}`} className="group block h-full">
             <motion.div
@@ -182,8 +182,8 @@ const FEATURES = [
   },
   {
     icon: Globe2,
-    title: "14 platforms and counting",
-    body: "YouTube, Instagram, Facebook, TikTok, X, Pinterest, Reddit, Snapchat, LinkedIn, Vimeo and more.",
+    title: "Every major platform",
+    body: "YouTube, Instagram, Facebook, TikTok, X, Pinterest, Reddit, Snapchat, LinkedIn, Vimeo and more — each with its own page.",
   },
   {
     icon: HeartHandshake,

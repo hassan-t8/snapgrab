@@ -174,3 +174,15 @@ model ToolUsage {
   @@index([tool])
   @@index([createdAt])
 }
+
+/// Per-service on/off switch controlled from the admin panel.
+/// A missing row means enabled — services are opt-out, not opt-in.
+model ServiceToggle {
+  key       String   @id // tool slug or platform id
+  kind      String // tool | platform
+  enabled   Boolean  @default(true)
+  note      String? // shown to visitors when disabled
+  updatedAt DateTime @updatedAt
+
+  @@index([kind])
+}

@@ -2,8 +2,11 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PageTracker from "@/components/PageTracker";
 import AnnouncementBar from "@/components/AnnouncementBar";
+import { getEnabledSummary } from "@/lib/services";
 
-export default function SiteLayout({ children }: LayoutProps<"/">) {
+export default async function SiteLayout({ children }: LayoutProps<"/">) {
+  const services = await getEnabledSummary();
+
   return (
     <>
       <a
@@ -13,7 +16,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
         Skip to content
       </a>
       <AnnouncementBar />
-      <Navbar />
+      <Navbar services={services} />
       <main id="main" className="flex-1">
         {children}
       </main>
