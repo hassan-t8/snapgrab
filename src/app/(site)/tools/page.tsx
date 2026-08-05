@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Image as ImageIcon, Music, ShieldCheck, Video, Wrench, Zap } from "lucide-react";
+import { ArrowRight, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
@@ -8,27 +8,31 @@ import { TOOLS, TOOL_CATEGORIES, toolsByCategory } from "@/lib/tools";
 import { siteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Free Online Tools — converters, compressors and downloaders",
+  title: "Free Online Tools — 27 converters, generators and downloaders",
   description:
-    "A growing set of free browser tools: image converter, compressor and resizer, PNG to JPG, WEBP converter, video to MP3 and the all-in-one video downloader. No signup, no upload.",
+    "27 free browser tools: image converter, compressor and resizer, PDF merge and split, QR code and password generators, JSON formatter, word counter, video to MP3 and more. No signup, nothing uploaded.",
   keywords: [
     "free online tools",
     "image converter",
     "image compressor",
     "png to jpg",
-    "webp converter",
+    "merge pdf",
+    "qr code generator",
+    "password generator",
+    "json formatter",
+    "word counter",
     "video to mp3",
     "online file converter",
   ],
   alternates: { canonical: "/tools" },
   openGraph: {
     title: "Free Online Tools — SnapGrab",
-    description: "Image converter, compressor, resizer, video to MP3 and more. Everything runs in your browser.",
+    description: "27 free tools for images, PDFs, text and media — everything runs in your browser, nothing is uploaded.",
     url: "/tools",
   },
 };
 
-const CATEGORY_ICON = { Image: ImageIcon, Audio: Music, Video } as const;
+const CATEGORY_ICON = { Image: ImageIcon, PDF: FileText, Text: Type, Generators: Palette, Audio: Music, Video } as const;
 
 const TOOLS_FAQ = [
   {
@@ -37,7 +41,11 @@ const TOOLS_FAQ = [
   },
   {
     q: "Do you upload my files?",
-    a: "The image tools never upload anything. Conversion, compression and resizing all happen inside your browser using the Canvas API, so the file stays on your device. The link-based tools only send the URL you paste, never a file.",
+    a: "No. Image, PDF, text and generator tools all run inside your browser — via the Canvas API, pdf-lib and Web Crypto — so files and text never leave your device. Only the three media downloaders talk to our server, and they receive just the URL you paste, never a file.",
+  },
+  {
+    q: "What can these tools do?",
+    a: "Images: convert, compress, resize, make favicons and Base64 data URIs. PDF: build from images, merge, split and rotate. Text: word count, case conversion, JSON formatting, Base64, URL encoding, hashing and slugs. Generators: passwords, UUIDs, QR codes, colour conversion and lorem ipsum.",
   },
   {
     q: "Which image formats are supported?",
@@ -53,7 +61,7 @@ const TOOLS_FAQ = [
   },
   {
     q: "Will you add more tools?",
-    a: "Yes. PDF handling and local audio/video conversion are the two most requested, and both are on the roadmap. Tell us through the contact form what you need most.",
+    a: "Yes, continuously. Local audio and video conversion is the biggest item still on the roadmap. Tell us through the contact form what you need most and it moves up the queue.",
   },
 ];
 
@@ -75,8 +83,8 @@ export default function ToolsIndex() {
           </Reveal>
           <Reveal delay={0.14}>
             <p className="mt-5 text-[15px] leading-relaxed text-muted sm:text-lg">
-              Convert, compress and resize images without uploading them anywhere. Pull audio out of any video link.
-              Download from fourteen platforms. All free, all in the browser.
+              Images, PDFs, text and media — {TOOLS.length} tools that run in your browser, so your files never leave
+              your device. No signup, no watermark, no upload wait.
             </p>
           </Reveal>
           <Reveal delay={0.2}>

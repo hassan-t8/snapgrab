@@ -157,8 +157,8 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl">
           <SectionHead
             eyebrow="More than downloads"
-            title="Free tools that run in your browser"
-            sub="Convert, compress and resize images without uploading a thing, or pull the audio out of any video link."
+            title={`${TOOLS.length} free tools that run in your browser`}
+            sub="Convert and compress images, merge and split PDFs, format JSON, generate QR codes and passwords — none of it uploaded anywhere."
           />
           <StaggerGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {TOOLS.slice(0, 6).map((t) => (

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, ChevronRight, ShieldCheck } from "lucide-react";
 import ImageStudio from "@/components/tools/ImageStudio";
+import PdfStudio from "@/components/tools/PdfStudio";
+import TextStudio from "@/components/tools/TextStudio";
+import GeneratorStudio from "@/components/tools/GeneratorStudio";
 import Downloader from "@/components/Downloader";
 import AdSlot from "@/components/AdSlot";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
@@ -114,6 +117,12 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
         <div className="mx-auto mt-10 max-w-3xl">
           {tool.engine === "image" ? (
             <ImageStudio tool={tool} />
+          ) : tool.engine === "pdf" ? (
+            <PdfStudio tool={tool} />
+          ) : tool.engine === "text" ? (
+            <TextStudio tool={tool} />
+          ) : tool.engine === "generate" ? (
+            <GeneratorStudio tool={tool} />
           ) : (
             <Downloader
               only={tool.engine === "link-audio" ? "audio" : undefined}
@@ -135,7 +144,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <SectionHead eyebrow="Step by step" title={`How to use the ${tool.name.toLowerCase()}`} />
-          <StaggerGroup className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <StaggerGroup className={`mt-12 grid gap-5 md:grid-cols-2 ${tool.steps.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             {tool.steps.map((s, i) => (
               <StaggerItem key={s.title}>
                 <div className="h-full rounded-2xl surface p-6">
@@ -151,15 +160,15 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
         </div>
       </section>
 
-      {tool.engine === "image" && (
+      {["image", "pdf", "text", "generate"].includes(tool.engine) && (
         <section className="px-4 pb-6 sm:px-6 lg:px-8">
           <Reveal className="mx-auto max-w-4xl">
             <div className="flex items-start gap-3 rounded-2xl border border-accent-500/30 bg-accent-500/5 p-6">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
               <p className="text-sm leading-relaxed text-muted">
-                <strong className="text-[var(--fg)]">Your files stay on your device.</strong> This tool uses the browser&apos;s
-                own Canvas API, so images are decoded, processed and re-encoded locally. Nothing is uploaded, nothing is
-                stored, and it keeps working even if your connection drops mid-batch.
+                <strong className="text-[var(--fg)]">Your data stays on your device.</strong> This tool runs entirely in
+                your browser — nothing is uploaded, nothing is stored on our servers, and it keeps working even if your
+                connection drops mid-way. We record only an anonymous count of how many times the tool ran.
               </p>
             </div>
           </Reveal>

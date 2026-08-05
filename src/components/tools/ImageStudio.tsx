@@ -29,8 +29,11 @@ type Job = {
   outUrl?: string;
   outSize?: number;
   outName?: string;
+  label?: string;
   error?: string;
 };
+
+const FAVICON_SIZES = [16, 32, 48, 96, 180, 192, 512];
 
 const LABELS: Record<OutputMime, string> = {
   "image/jpeg": "JPG",
@@ -87,6 +90,8 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
   const [lockRatio, setLockRatio] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dataUri, setDataUri] = useState("");
+  const [copied, setCopied] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const target = fixedOutput ?? output;
@@ -196,9 +201,101 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
     };
   }
 
+  async function runFavicon() {
+    const source = jobs.find((j) => j.status !== "error");
+    if (!source) return [] as Job[];
+    const { bitmap } = await decode(source.file);
+    const produced: Job[] = [];
+
+    for (const size of FAVICON_SIZES) {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) break;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // letterbox rather than stretch a non-square source
+      const src = bitmap as CanvasImageSource & { width: number; height: number };
+      const scale = Math.min(size / src.width, size / src.height);
+      const w = src.width * scale;
+      const h = src.height * scale;
+      ctx.drawImage(src, (size - w) / 2, (size - h) / 2, w, h);
+
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
+      if (!blob) continue;
+      produced.push({
+        id: `fav-${size}`,
+        file: source.file,
+        previewUrl: source.previewUrl,
+        width: size,
+        height: size,
+        status: "done",
+        outUrl: URL.createObjectURL(blob),
+        outSize: blob.size,
+        outName: `favicon-${size}x${size}.png`,
+        label: `${size}×${size}`,
+      });
+    }
+    return produced;
+  }
+
   async function runAll() {
     if (!jobs.length || busy) return;
     setBusy(true);
+
+    if (mode === "to-base64") {
+      const source = jobs.find((j) => j.status !== "error");
+      if (source) {
+        const uri = await new Promise<string>((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(new Error("read failed"));
+          fr.readAsDataURL(source.file);
+        }).catch(() => "");
+        setDataUri(uri);
+        if (uri) {
+          fetch("/api/tools/track", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            keepalive: true,
+            body: JSON.stringify({
+              tool: tool.slug,
+              inputType: source.file.type || "image",
+              outputType: "text/plain",
+              files: 1,
+              bytesIn: source.file.size,
+              bytesOut: uri.length,
+            }),
+          }).catch(() => {});
+        }
+      }
+      setBusy(false);
+      return;
+    }
+
+    if (mode === "favicon") {
+      const produced = await runFavicon();
+      setJobs((prev) => [...prev.filter((j) => j.status === "error"), ...produced]);
+      setBusy(false);
+      if (produced.length) {
+        fetch("/api/tools/track", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          keepalive: true,
+          body: JSON.stringify({
+            tool: tool.slug,
+            inputType: "image",
+            outputType: "image/png",
+            files: produced.length,
+            bytesIn: produced[0]?.file.size,
+            bytesOut: produced.reduce((n, j) => n + (j.outSize ?? 0), 0),
+          }),
+        }).catch(() => {});
+      }
+      return;
+    }
 
     const pending = jobs.filter((j) => j.status !== "error");
     setJobs((prev) => prev.map((j) => (j.status === "error" ? j : { ...j, status: "working" })));
@@ -324,7 +421,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
 
           {/* controls */}
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            {!fixedOutput && (
+            {!fixedOutput && mode !== "favicon" && mode !== "to-base64" && (
               <div>
                 <label className="mb-2 block text-sm font-semibold">Output format</label>
                 <div className="flex gap-2">
@@ -346,7 +443,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
               </div>
             )}
 
-            {lossy && (
+            {lossy && mode !== "favicon" && mode !== "to-base64" && (
               <div>
                 <label className="mb-2 flex items-center justify-between text-sm font-semibold">
                   Quality
@@ -423,7 +520,11 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
                   ? "Compress images"
                   : mode === "resize"
                     ? "Resize images"
-                    : `Convert to ${LABELS[target]}`}
+                    : mode === "favicon"
+                      ? "Generate favicons"
+                      : mode === "to-base64"
+                        ? "Encode to Base64"
+                        : `Convert to ${LABELS[target]}`}
             </motion.button>
 
             {doneJobs.length > 1 && (
@@ -446,6 +547,48 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
               </button>
             )}
           </div>
+
+          {dataUri && mode === "to-base64" && (
+            <div className="mt-5 space-y-3">
+              {[
+                { label: "Data URI", value: dataUri },
+                { label: "CSS", value: `background-image: url("${dataUri}");` },
+                { label: "HTML", value: `<img src="${dataUri}" alt="" />` },
+              ].map((row) => (
+                <div key={row.label}>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-sm font-semibold">{row.label}</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(row.value);
+                        } catch {
+                          const ta = document.createElement("textarea");
+                          ta.value = row.value;
+                          document.body.appendChild(ta);
+                          ta.select();
+                          try { document.execCommand("copy"); } catch {}
+                          ta.remove();
+                        }
+                        setCopied(row.label);
+                        setTimeout(() => setCopied(""), 1600);
+                      }}
+                      className="rounded-lg surface px-3 py-1.5 text-xs font-bold transition-colors hover:border-brand-400/60"
+                    >
+                      {copied === row.label ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <pre className="max-h-32 overflow-auto rounded-xl surface p-3 font-mono text-[11px] leading-relaxed">
+                    <code className="break-all whitespace-pre-wrap">{row.value}</code>
+                  </pre>
+                </div>
+              ))}
+              <p className="text-xs text-muted">
+                {formatBytes(jobs[0]?.file.size ?? 0)} source → {formatBytes(dataUri.length)} encoded (Base64 adds ~33%).
+              </p>
+            </div>
+          )}
 
           {doneJobs.length > 0 && totalIn > 0 && (
             <motion.p
@@ -487,7 +630,10 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{job.outName ?? job.file.name}</span>
+                  <span className="block truncate text-sm font-semibold">
+                    {job.label ? `${job.label} — ` : ""}
+                    {job.outName ?? job.file.name}
+                  </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
                     <span>{formatBytes(job.file.size)}</span>
                     {job.status === "done" && (

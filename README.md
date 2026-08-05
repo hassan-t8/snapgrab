@@ -3,11 +3,11 @@
 # SnapGrab
 
 **An all-in-one media downloader and browser toolkit.**
-Paste a link from 14 platforms to get the file — or convert, compress and resize images without uploading anything.
+Paste a link from 14 platforms to get the file — plus 24 offline tools for images, PDFs, text and generators that never upload a byte.
 
 Ships with a complete admin panel: visitor tracking, download logs, API-quota monitoring, tool analytics, a blog CMS and an SMTP contact inbox.
 
-`Next.js 16` · `React 19` · `TypeScript` · `Tailwind 4` · `Prisma 6` · `Framer Motion` · `Recharts`
+`Next.js 16` · `React 19` · `TypeScript` · `Tailwind 4` · `Prisma 6` · `Framer Motion` · `Recharts` · `pdf-lib` · `qrcode`
 
 </div>
 
@@ -124,23 +124,65 @@ YouTube · Instagram · Facebook · TikTok · X (Twitter) · Pinterest · Snapch
 - **No watermark, no re-encoding** — the original stream is passed through untouched.
 - Each platform gets a **dedicated landing page** with its own copy, format list, how-to and FAQ.
 
-### Browser tools — 9 and counting
+### Browser tools — 27 and counting
 
-| Tool | What it does | Where it runs |
-| --- | --- | --- |
-| Image Converter | JPG ⇄ PNG ⇄ WEBP, batch, quality control | Browser |
-| PNG to JPG | Fixed-output converter, flattens alpha onto white | Browser |
-| JPG to PNG | Lossless output for editing | Browser |
-| WEBP Converter | To and from WEBP | Browser |
-| Image Compressor | Live quality slider with before/after size readout | Browser |
-| Image Resizer | Exact pixels, aspect ratio lock, batch | Browser |
-| Video to MP3 | Extracts the audio track from any supported link | Server (link only) |
-| Audio Downloader | SoundCloud, podcasts, TikTok sounds | Server (link only) |
-| Video Downloader | The universal all-platform downloader | Server (link only) |
+Every tool below is generated from a single registry entry in [`src/lib/tools.ts`](src/lib/tools.ts): the page, copy, steps, FAQ, metadata, JSON-LD, sitemap entry, nav and footer links all come from that one object. Adding a tool is one object, not a new page.
 
-**Image tools never upload your files.** Decoding, resizing and re-encoding all happen locally through the Canvas API, so the file stays on your device and the tool keeps working if your connection drops. Only an anonymous count is reported for analytics.
+**Image** — runs on the Canvas API
 
-Adding a tool is one object in [`src/lib/tools.ts`](src/lib/tools.ts) — the page, metadata, structured data, sitemap entry, nav and footer links all generate from it.
+| Tool | What it does |
+| --- | --- |
+| Image Converter | JPG ⇄ PNG ⇄ WEBP, batch, quality control |
+| PNG to JPG | Fixed-output converter, flattens alpha onto white |
+| JPG to PNG | Lossless output for editing |
+| WEBP Converter | To and from WEBP |
+| Image Compressor | Live quality slider with before/after size readout |
+| Image Resizer | Exact pixels, aspect-ratio lock, batch |
+| Favicon Generator | 16–512px set plus the HTML snippet |
+| Image to Base64 | Data URI with ready-made CSS and HTML snippets |
+
+**PDF** — runs on pdf-lib
+
+| Tool | What it does |
+| --- | --- |
+| Image to PDF | JPG/PNG pages combined into one document |
+| Merge PDF | Join several PDFs in order |
+| Split PDF | Extract a page range, or one file per page |
+| Rotate PDF | 90/180/270°, written into the file so it sticks |
+
+**Text & developer** — pure JS and Web Crypto
+
+| Tool | What it does |
+| --- | --- |
+| Word Counter | Words, characters, sentences, paragraphs, reading time |
+| Case Converter | 9 cases including camel, Pascal, snake, kebab |
+| JSON Formatter | Prettify, minify, validate with error positions |
+| Base64 Encoder | Encode/decode with full UTF-8 support |
+| URL Encoder | Percent-encode and decode |
+| Hash Generator | SHA-1, SHA-256, SHA-384, SHA-512 |
+| Slug Generator | SEO permalinks with accents transliterated |
+
+**Generators**
+
+| Tool | What it does |
+| --- | --- |
+| Password Generator | crypto.getRandomValues, live entropy readout |
+| UUID Generator | v4 in bulk, three formats |
+| QR Code Generator | PNG and SVG, no redirect, no expiry |
+| Color Converter | HEX/RGB/HSL, tint scale, WCAG contrast |
+| Lorem Ipsum | Paragraphs, sentences or words |
+
+**Media** — the only tools that talk to the server (they receive the URL, never a file)
+
+| Tool | What it does |
+| --- | --- |
+| Video to MP3 | Extracts the audio track from any supported link |
+| Audio Downloader | SoundCloud, podcasts, TikTok sounds |
+| Video Downloader | The universal all-platform downloader |
+
+**Nothing is uploaded by the 24 offline tools.** Images decode and re-encode through the Canvas API, PDFs are assembled with pdf-lib, hashes come from Web Crypto, and randomness from `crypto.getRandomValues` — all in your browser. Only an anonymous run count is reported for analytics.
+
+> **Secure-context note:** the hash generator needs `crypto.subtle`, which browsers only expose over HTTPS or on localhost. Over plain `http://` on a LAN IP it shows a clear notice instead of failing. Everything else works in both contexts.
 
 ### Content and trust pages
 
@@ -159,7 +201,7 @@ src/
 ├── app/
 │   ├── (site)/                  # public site — has Navbar/Footer/tracker
 │   │   ├── page.tsx             # home
-│   │   ├── tools/[slug]/        # dynamic tool pages
+│   │   ├── tools/[slug]/        # 27 dynamic tool pages, 4 engines
 │   │   ├── download/[platform]/ # dynamic platform pages
 │   │   ├── blog/[slug]/
 │   │   └── about|contact|faq|privacy|terms|dmca/
@@ -171,7 +213,7 @@ src/
 │   └── layout.tsx               # html shell, fonts, metadata, theme script
 ├── components/
 │   ├── admin/                   # shell, charts, tables, editors
-│   ├── tools/ImageStudio.tsx    # the client-side conversion engine
+│   ├── tools/                   # ImageStudio · PdfStudio · TextStudio · GeneratorStudio
 │   ├── Downloader.tsx           # the link resolver UI
 │   └── sections.tsx             # reusable marketing sections
 └── lib/
@@ -190,7 +232,6 @@ src/
 1. **Detect** — `detectPlatform()` matches the pasted URL's hostname against the registry in [`src/lib/platforms.ts`](src/lib/platforms.ts). Tracking parameters are stripped first.
 2. **Resolve** — `POST /api/resolve` checks the TTL cache (`ResolveCache`), then calls the provider, normalises the response into one predictable format list, and logs the call to `ApiCall` with its latency.
 3. **Download** — `GET /api/download` streams the chosen file through the server so it saves with a clean filename in every browser. Loopback and private-range destinations are blocked (SSRF guard); range requests pass through for seeking.
-4. **Convert** — image tools run entirely client-side; only an anonymous `ToolUsage` row is posted afterwards.
 5. **Track** — every request upserts a `Visitor` keyed by an anonymous cookie, and each route change records a `PageView`, producing the per-visitor footstep trail in the admin panel.
 
 Media is never written to disk — it is piped straight from the source CDN to the visitor.
@@ -206,7 +247,7 @@ Implemented across every route, not just the home page:
 - **Metadata** — per-page title templates, descriptions, keywords and canonicals; `metadataBase` so every relative URL resolves absolutely.
 - **Dynamic OG images** — `/api/og` renders a branded 1200×630 card per page via `next/og`; wired into both Open Graph and Twitter card tags.
 - **Structured data** — `Organization` + `WebSite` (with SearchAction) on the home page, `SoftwareApplication` + `HowTo` + `FAQPage` + `BreadcrumbList` on tool and platform pages, `BlogPosting` + `BreadcrumbList` on articles, `CollectionPage` + `ItemList` on the tools index.
-- **Crawl control** — generated `sitemap.xml` covering all 37 public URLs (static pages, 14 platforms, 9 tools, every published post), `robots.txt` that blocks `/admin` and `/api/` while explicitly allowing `/api/og`, and `googleBot` directives for large image previews.
+- **Crawl control** — generated `sitemap.xml` covering all 55 public URLs (static pages, 14 platforms, 27 tools, every published post), `robots.txt` that blocks `/admin` and `/api/` while explicitly allowing `/api/og`, and `googleBot` directives for large image previews.
 - **PWA/manifest** — `manifest.webmanifest`, SVG icon, theme colours per colour scheme.
 - **On-page** — one `<h1>` per route, visible breadcrumbs, internal linking between related tools and platforms, semantic landmarks, alt text and a skip link.
 
@@ -222,7 +263,7 @@ Verify locally with `curl localhost:3000/sitemap.xml` or paste any page into Goo
 | **Downloads** | Every resolve and transfer — source link, format, size, IP, country, status — filterable by platform and status |
 | **Visitors** | Unique visitors with IP, geo, device, browser and visit counts; searchable by IP, country or city |
 | **Visitor detail** | The full footsteps trail — every page view in order, plus that visitor's download history |
-| **Tools usage** | Runs per tool, files processed, bytes in/out and average size saving |
+| **Tools usage** | Runs per tool across all 27 tools, files processed, bytes in/out and average size saving |
 | **API usage** | Call volume, billable vs cached calls, cache hit rate, latency, failures, per-provider and per-platform breakdown |
 | **Blog posts** | Create, edit, publish/unpublish, delete — with live markdown preview |
 | **Messages** | Contact inbox with reply, mark-handled and delete |
@@ -262,6 +303,17 @@ Auth is a JWT in an httpOnly cookie, 8-hour expiry, bcrypt-hashed passwords, bru
 npm run build && npm start
 ```
 
+### Testing from your phone
+
+`next dev` already listens on every interface. Point a phone on the same Wi-Fi at your machine's LAN address:
+
+```bash
+ipconfig getifaddr en0        # macOS — your LAN IP
+npx next dev -H 0.0.0.0 -p 3001
+```
+
+`allowedDevOrigins` in [`next.config.ts`](next.config.ts) must list that IP, otherwise Next blocks the dev asset requests and the page loads but never hydrates. Set `NEXT_PUBLIC_SITE_URL` to the same address so canonicals and OG images match.
+
 ---
 
 ## Scripts
@@ -279,8 +331,8 @@ npm run build && npm start
 
 ## Roadmap
 
-- PDF tools (merge, split, compress, image→PDF)
 - Local audio and video conversion via ffmpeg.wasm
+- PDF compression and page reordering by drag
 - Batch and playlist downloads with a queue
 - Redis-backed rate limiting and cache for multi-instance deploys
 
