@@ -16,6 +16,7 @@ import {
   Menu,
   Settings,
   Users,
+  Wrench,
   X,
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/downloads", label: "Downloads", icon: Download },
   { href: "/admin/visitors", label: "Visitors", icon: Users },
+  { href: "/admin/tools", label: "Tools usage", icon: Wrench },
   { href: "/admin/api-usage", label: "API usage", icon: Activity },
   { href: "/admin/blogs", label: "Blog posts", icon: FileText },
   { href: "/admin/messages", label: "Messages", icon: Mail },

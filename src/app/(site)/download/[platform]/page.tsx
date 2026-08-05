@@ -7,6 +7,7 @@ import AdSlot from "@/components/AdSlot";
 import { Aurora, FAQ, Features, SectionHead, Steps } from "@/components/sections";
 import { Reveal } from "@/components/motion";
 import { PLATFORMS } from "@/lib/platforms";
+import { breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
 
 export function generateStaticParams() {
   return PLATFORMS.map((p) => ({ platform: p.slug }));
@@ -21,7 +22,25 @@ export async function generateMetadata({ params }: PageProps<"/download/[platfor
     description: p.description,
     keywords: [`${p.name.toLowerCase()} downloader`, `download ${p.name.toLowerCase()} video`, ...p.formats],
     alternates: { canonical: `/download/${p.slug}` },
-    openGraph: { title: p.headline, description: p.description, url: `/download/${p.slug}` },
+    openGraph: {
+      title: p.headline,
+      description: p.description,
+      url: `/download/${p.slug}`,
+      images: [
+        {
+          url: ogImage({ title: p.headline, subtitle: p.blurb, badge: `${p.name} downloader` }),
+          width: 1200,
+          height: 630,
+          alt: p.name,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: p.headline,
+      description: p.blurb,
+      images: [ogImage({ title: p.headline, subtitle: p.blurb, badge: `${p.name} downloader` })],
+    },
   };
 }
 
@@ -161,17 +180,20 @@ export default async function PlatformPage({ params }: PageProps<"/download/[pla
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            name: p.headline,
-            applicationCategory: "MultimediaApplication",
-            operatingSystem: "Any",
-            description: p.description,
-            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-          }),
-        }}
+        dangerouslySetInnerHTML={jsonLd(
+          softwareAppJsonLd({ name: p.headline, description: p.description, url: `/download/${p.slug}` }),
+          howToJsonLd(`How to download from ${p.name}`, [
+            { title: "Copy the link", body: `Use the Share or Copy link button in ${p.name}.` },
+            { title: "Paste it into SnapGrab", body: "The platform is detected automatically as soon as you paste." },
+            { title: "Pick a quality", body: "Every stream the source published is listed, best first." },
+            { title: "Save the file", body: "The download starts immediately, with no software to install." },
+          ]),
+          faqJsonLd(p.faqs),
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: `${p.name} downloader`, path: `/download/${p.slug}` },
+          ]),
+        )}
       />
     </>
   );

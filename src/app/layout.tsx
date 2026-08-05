@@ -36,14 +36,36 @@ export const metadata: Metadata = {
     url: SITE,
     title: `${NAME} — All-in-one social video downloader`,
     description: "Paste a link, get the file. YouTube, Instagram, Facebook, TikTok and 10 more platforms.",
+    locale: "en_US",
+    images: [
+      {
+        url: `${SITE}/api/og?title=${encodeURIComponent("Download any video. Just paste the link.")}&subtitle=${encodeURIComponent("14 platforms · image tools · no signup")}`,
+        width: 1200,
+        height: 630,
+        alt: NAME,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: `${NAME} — All-in-one social video downloader`,
     description: "Paste a link, get the file. Free, fast, no watermark.",
+    images: [`${SITE}/api/og?title=${encodeURIComponent("Download any video")}`],
   },
-  robots: { index: true, follow: true },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+  },
   alternates: { canonical: "/" },
+  applicationName: NAME,
+  category: "technology",
+  creator: NAME,
+  publisher: NAME,
+  formatDetection: { telephone: false },
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
 };
 
 export const viewport: Viewport = {

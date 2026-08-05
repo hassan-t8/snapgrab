@@ -13,7 +13,9 @@ import {
   Steps,
   Testimonials,
 } from "@/components/sections";
-import { Reveal } from "@/components/motion";
+import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
+import { TOOLS } from "@/lib/tools";
+import { jsonLd, faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -150,6 +152,45 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ------------------------------- tools ------------------------------- */}
+      <section className="px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <SectionHead
+            eyebrow="More than downloads"
+            title="Free tools that run in your browser"
+            sub="Convert, compress and resize images without uploading a thing, or pull the audio out of any video link."
+          />
+          <StaggerGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {TOOLS.slice(0, 6).map((t) => (
+              <StaggerItem key={t.slug}>
+                <Link href={`/tools/${t.slug}`} className="group block h-full">
+                  <div className="relative h-full overflow-hidden rounded-2xl surface p-6 transition-all hover:-translate-y-1.5 hover:border-brand-400/40">
+                    <div
+                      className="absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-50"
+                      style={{ background: t.color }}
+                    />
+                    <span className="h-1.5 w-10 rounded-full" style={{ background: t.color, display: "block" }} />
+                    <h3 className="mt-4 font-bold">{t.name}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted">{t.tagline}</p>
+                    <span className="mt-4 flex items-center gap-1.5 text-sm font-bold text-brand-400 opacity-0 transition-opacity group-hover:opacity-100">
+                      Open tool <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </div>
+                </Link>
+              </StaggerItem>
+            ))}
+          </StaggerGroup>
+          <div className="mt-10 text-center">
+            <Link
+              href="/tools"
+              className="inline-flex items-center gap-2 rounded-2xl surface px-6 py-3 font-bold transition-colors hover:border-brand-400/60"
+            >
+              See all {TOOLS.length} tools <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ------------------------------- how it works ------------------------------- */}
       <section className="relative overflow-hidden px-4 py-20 sm:px-6 lg:px-8">
         <div className="pointer-events-none absolute inset-x-0 top-1/2 -z-10 h-72 -translate-y-1/2 bg-brand-500/5 blur-3xl" />
@@ -232,17 +273,7 @@ export default async function HomePage() {
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            mainEntity: HOME_FAQ.map((f) => ({
-              "@type": "Question",
-              name: f.q,
-              acceptedAnswer: { "@type": "Answer", text: f.a },
-            })),
-          }),
-        }}
+        dangerouslySetInnerHTML={jsonLd(organizationJsonLd(), websiteJsonLd(), faqJsonLd(HOME_FAQ))}
       />
     </>
   );

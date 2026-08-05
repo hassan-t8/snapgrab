@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Download, Menu, X } from "lucide-react";
 import { PLATFORMS } from "@/lib/platforms";
+import { TOOLS } from "@/lib/tools";
 import ThemeToggle from "./ThemeToggle";
 
 const LINKS = [
   { href: "/", label: "Home" },
+  { href: "/tools", label: "Tools" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
@@ -169,6 +171,20 @@ export default function Navbar() {
                   </Link>
                 </motion.div>
               ))}
+              <p className="px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-wider text-muted">Tools</p>
+              <div className="grid grid-cols-2 gap-1">
+                {TOOLS.map((t) => (
+                  <Link
+                    key={t.slug}
+                    href={`/tools/${t.slug}`}
+                    onClick={closeMenus}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-brand-500/10"
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
+                    {t.name}
+                  </Link>
+                ))}
+              </div>
               <p className="px-3 pb-1 pt-3 text-xs font-bold uppercase tracking-wider text-muted">Downloaders</p>
               <div className="grid grid-cols-2 gap-1">
                 {PLATFORMS.map((p, i) => (

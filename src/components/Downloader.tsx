@@ -44,7 +44,18 @@ function formatDuration(s?: number) {
     : `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-export default function Downloader({ presetPlatform }: { presetPlatform?: string }) {
+export default function Downloader({
+  presetPlatform,
+  only,
+  placeholder = "Paste any video link — we detect the platform automatically",
+  cta = "Download",
+}: {
+  presetPlatform?: string;
+  /** restrict the results list to one media kind (used by the audio tools) */
+  only?: "audio" | "video";
+  placeholder?: string;
+  cta?: string;
+}) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResolvedMedia | null>(null);
@@ -74,14 +85,28 @@ export default function Downloader({ presetPlatform }: { presetPlatform?: string
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Could not read that link.");
+
+      const media = json.data as ResolvedMedia;
+      if (only) {
+        const kept = media.formats.filter((f) => f.kind === only);
+        if (!kept.length) {
+          throw new Error(
+            only === "audio"
+              ? "That link has no separate audio track we can extract."
+              : "That link has no downloadable video stream.",
+          );
+        }
+        media.formats = kept;
+      }
+
       lastResolved.current = clean;
-      setResult(json.data as ResolvedMedia);
+      setResult(media);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
-  }, [result]);
+  }, [result, only]);
 
   // auto-detect on paste — the whole point of the product
   function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
@@ -166,7 +191,7 @@ export default function Downloader({ presetPlatform }: { presetPlatform?: string
                   inputMode="url"
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="Paste any video link — we detect the platform automatically"
+                  placeholder={placeholder}
                   aria-label="Video link"
                   className="w-full rounded-2xl surface py-4 pl-12 pr-28 text-[15px] outline-none transition-all placeholder:text-muted focus:border-brand-400 focus:shadow-[0_0_0_4px_rgba(112,72,240,.14)]"
                 />
@@ -212,7 +237,7 @@ export default function Downloader({ presetPlatform }: { presetPlatform?: string
                   </>
                 ) : (
                   <>
-                    <Download className="h-[18px] w-[18px]" /> Download
+                    <Download className="h-[18px] w-[18px]" /> {cta}
                   </>
                 )}
               </motion.button>

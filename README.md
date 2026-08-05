@@ -1,29 +1,66 @@
+<div align="center">
+
 # SnapGrab
 
-An all-in-one social media downloader — paste a link from YouTube, Instagram, Facebook, TikTok, X and ten more platforms and get the file. Ships with a full admin panel: visitor tracking, download logs, API-quota monitoring, a blog CMS, a contact inbox and an SMTP mailer.
+**An all-in-one media downloader and browser toolkit.**
+Paste a link from 14 platforms to get the file — or convert, compress and resize images without uploading anything.
 
-Built with **Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Prisma 6 · Framer Motion · Recharts**.
+Ships with a complete admin panel: visitor tracking, download logs, API-quota monitoring, tool analytics, a blog CMS and an SMTP contact inbox.
+
+`Next.js 16` · `React 19` · `TypeScript` · `Tailwind 4` · `Prisma 6` · `Framer Motion` · `Recharts`
+
+</div>
+
+---
+
+## Table of contents
+
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Features](#features)
+- [Project structure](#project-structure)
+- [How it works](#how-it-works)
+- [SEO](#seo)
+- [Admin panel](#admin-panel)
+- [API reference](#api-reference)
+- [Deploying](#deploying)
+- [Scripts](#scripts)
+- [Roadmap](#roadmap)
+- [Legal](#legal)
 
 ---
 
 ## Quick start
 
 ```bash
-npm install          # also runs prisma generate
-npm run setup        # push the schema + seed admin, blog posts and settings
-npm run dev          # http://localhost:3000
+git clone git@github.com:hassan-t8/snapgrab.git
+cd snapgrab
+
+cp .env.example .env      # then fill in the values you need
+npm install               # also runs prisma generate
+npm run setup             # push the schema + seed admin, blog posts and settings
+npm run dev               # http://localhost:3000
 ```
 
-Admin panel: **/admin** → sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env`
-(defaults: `admin@snapgrab.app` / `Admin@12345` — change these before deploying).
+| | |
+| --- | --- |
+| **Site** | http://localhost:3000 |
+| **Admin** | http://localhost:3000/admin |
+| **Login** | `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (default `admin@snapgrab.app` / `Admin@12345`) |
 
-The app runs out of the box in **demo mode**: without a RapidAPI key, resolves return sample media so you can exercise the entire UI, logging and dashboard before paying for anything.
+> **Demo mode.** With no RapidAPI key set, link resolves return sample media so you can exercise the whole product — UI, logging, dashboard, charts — before paying for anything. The image tools are fully functional either way, because they never touch the server. Add `RAPIDAPI_KEY` and demo mode switches off automatically.
 
 ---
 
 ## Configuration
 
-Everything lives in `.env` (copy `.env.example`).
+Every setting lives in `.env`. Copy `.env.example` to start.
+
+### Database
+
+```env
+DATABASE_URL="file:./dev.db"     # SQLite for local dev
+```
 
 ### Downloader provider (RapidAPI)
 
@@ -31,18 +68,13 @@ Everything lives in `.env` (copy `.env.example`).
 RAPIDAPI_KEY="your-key"
 RAPIDAPI_HOST="social-download-all-in-one.p.rapidapi.com"
 RAPIDAPI_ENDPOINT="https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink"
+
+# optional: a dedicated provider just for YouTube
+RAPIDAPI_YT_HOST=""
+RAPIDAPI_YT_ENDPOINT=""
 ```
 
-The moment `RAPIDAPI_KEY` is set, demo mode switches off and real media is resolved.
-
-Optionally point YouTube at a dedicated provider (some hosts handle it better):
-
-```env
-RAPIDAPI_YT_HOST="..."
-RAPIDAPI_YT_ENDPOINT="..."
-```
-
-**Swapping providers.** Responses are normalised in [`src/lib/provider.ts`](src/lib/provider.ts) by `normalizeProviderPayload`, which already tolerates the common shapes (`medias`, `url`, `links`, `formats`, `video`) and the usual field aliases. A new host usually needs no code change; if it does, that one function is the only place to touch.
+**Swapping providers.** Upstream responses are normalised by `normalizeProviderPayload` in [`src/lib/provider.ts`](src/lib/provider.ts), which already tolerates the common shapes (`medias`, `url`, `links`, `formats`, `video`) and the usual field aliases (`link`/`download_url`/`src`, `quality`/`label`/`resolution`, …). A new host usually needs no code change; if it does, that single function is the only place to touch.
 
 ### SMTP (contact form)
 
@@ -51,91 +83,213 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="465"
 SMTP_SECURE="true"
 SMTP_USER="you@gmail.com"
-SMTP_PASS="app-password"      # Gmail requires an App Password, not your login
+SMTP_PASS="app-password"          # Gmail needs an App Password, not your login
 MAIL_FROM="SnapGrab <no-reply@yourdomain.com>"
 MAIL_TO="you@yourdomain.com"
 ```
 
-Two emails go out per submission: a notification to `MAIL_TO` (with reply-to set to the sender) and a confirmation to the visitor. Without SMTP, messages still land in the admin inbox — nothing is lost.
+Each submission sends two emails: a notification to `MAIL_TO` with reply-to set to the sender, and a confirmation to the visitor. Without SMTP configured, messages still land in the admin inbox — nothing is lost, and the UI says so honestly.
 
-### AdSense
+### Ads and SEO
 
 ```env
+NEXT_PUBLIC_SITE_URL="https://yourdomain.com"   # canonicals, sitemap, OG images
+NEXT_PUBLIC_SITE_NAME="SnapGrab"
 NEXT_PUBLIC_ADSENSE_CLIENT="ca-pub-xxxxxxxxxxxxxxxx"
+GOOGLE_SITE_VERIFICATION=""                     # optional Search Console token
 ```
 
-Until that is set, `<AdSlot />` renders a neutral reserved block, so layout never shifts. Pass real slot ids per placement: `<AdSlot slot="1234567890" />`.
+Until `NEXT_PUBLIC_ADSENSE_CLIENT` is set, `<AdSlot />` renders a neutral reserved block so layout never shifts. Pass real slot ids per placement: `<AdSlot slot="1234567890" />`.
 
-The site is built to pass AdSense review: privacy policy, terms, DMCA, about, contact, a real blog, no pop-ups and no deceptive download buttons.
+### Auth
+
+```env
+AUTH_SECRET="run: openssl rand -base64 32"
+ADMIN_EMAIL="admin@yourdomain.com"
+ADMIN_PASSWORD="a-strong-password"
+```
+
+Run `npm run seed` after changing these to apply them.
 
 ---
 
-## What is in the box
+## Features
 
-### Public site
+### Downloaders — 14 platforms
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Hero downloader, platform grid, how-it-works, features, testimonials, FAQ |
-| `/download/[platform]` | 14 SEO landing pages, each with its own copy, formats and FAQ |
-| `/blog`, `/blog/[slug]` | Blog index and article pages with reading time, share row and related posts |
-| `/about`, `/contact`, `/faq` | Company pages; contact posts through SMTP |
-| `/privacy`, `/terms`, `/dmca` | Legal pages written to match what the code actually does |
-| `/sitemap.xml`, `/robots.txt` | Generated, including every platform page and published post |
+YouTube · Instagram · Facebook · TikTok · X (Twitter) · Pinterest · Snapchat · LinkedIn · Reddit · Vimeo · Dailymotion · SoundCloud · Threads · Twitch
 
-### Admin panel (`/admin`)
+- **Auto link detection** — the clipboard is read on focus (permission-gated, fails silently) and pasting starts the resolve on its own. A live badge shows the detected platform as you type.
+- **Every published quality** — 4K down to 360p, plus audio-only rows, sorted best-first and de-duplicated.
+- **No watermark, no re-encoding** — the original stream is passed through untouched.
+- Each platform gets a **dedicated landing page** with its own copy, format list, how-to and FAQ.
 
-| Page | What it shows |
-| --- | --- |
-| Dashboard | 7-day downloads/visitors/views/success-rate, 14-day traffic chart, platform bars, country + device donuts, provider health, recent activity |
-| Downloads | Every resolve and transfer with source link, format, IP, country and status — filterable by platform and status |
-| Visitors | Unique visitors with IP, geo, device, browser, visit counts; search by IP/country/city |
-| Visitor detail | The full "footsteps" trail — every page view in order, plus that visitor's downloads |
-| API usage | Call volume, billable vs cached calls, cache hit rate, latency, failures, per-provider and per-platform breakdown |
-| Blog posts | Create, edit, publish/unpublish and delete, with a live markdown preview |
-| Messages | Contact inbox with reply, mark-handled and delete |
-| Subscribers | Newsletter list with copy-all |
-| Settings | Environment status readout plus editable tagline, contact email and announcement banner |
+### Browser tools — 9 and counting
+
+| Tool | What it does | Where it runs |
+| --- | --- | --- |
+| Image Converter | JPG ⇄ PNG ⇄ WEBP, batch, quality control | Browser |
+| PNG to JPG | Fixed-output converter, flattens alpha onto white | Browser |
+| JPG to PNG | Lossless output for editing | Browser |
+| WEBP Converter | To and from WEBP | Browser |
+| Image Compressor | Live quality slider with before/after size readout | Browser |
+| Image Resizer | Exact pixels, aspect ratio lock, batch | Browser |
+| Video to MP3 | Extracts the audio track from any supported link | Server (link only) |
+| Audio Downloader | SoundCloud, podcasts, TikTok sounds | Server (link only) |
+| Video Downloader | The universal all-platform downloader | Server (link only) |
+
+**Image tools never upload your files.** Decoding, resizing and re-encoding all happen locally through the Canvas API, so the file stays on your device and the tool keeps working if your connection drops. Only an anonymous count is reported for analytics.
+
+Adding a tool is one object in [`src/lib/tools.ts`](src/lib/tools.ts) — the page, metadata, structured data, sitemap entry, nav and footer links all generate from it.
+
+### Content and trust pages
+
+Blog with markdown CMS · About · Contact · FAQ · Privacy policy · Terms of service · DMCA — all written to describe what the code actually does, which is what AdSense review looks for.
+
+### Design
+
+Dark and light themes with no flash-of-wrong-theme, an animated conic gradient border on the input, blob aurora backgrounds, scroll-reveal and stagger animations throughout, a marquee platform strip, animated counters, and full `prefers-reduced-motion` support. Responsive from 360px up.
+
+---
+
+## Project structure
+
+```
+src/
+├── app/
+│   ├── (site)/                  # public site — has Navbar/Footer/tracker
+│   │   ├── page.tsx             # home
+│   │   ├── tools/[slug]/        # dynamic tool pages
+│   │   ├── download/[platform]/ # dynamic platform pages
+│   │   ├── blog/[slug]/
+│   │   └── about|contact|faq|privacy|terms|dmca/
+│   ├── admin/
+│   │   ├── login/               # outside the guard
+│   │   └── (dash)/              # guarded route group, own chrome
+│   ├── api/                     # resolve, download, contact, track, og, admin
+│   ├── sitemap.ts · robots.ts · manifest.ts · icon.svg
+│   └── layout.tsx               # html shell, fonts, metadata, theme script
+├── components/
+│   ├── admin/                   # shell, charts, tables, editors
+│   ├── tools/ImageStudio.tsx    # the client-side conversion engine
+│   ├── Downloader.tsx           # the link resolver UI
+│   └── sections.tsx             # reusable marketing sections
+└── lib/
+    ├── platforms.ts             # platform registry + URL detection
+    ├── tools.ts                 # tool registry (drives the dynamic pages)
+    ├── provider.ts              # RapidAPI adapter, cache, normalisation
+    ├── seo.ts                   # JSON-LD builders, OG helpers
+    ├── tracking.ts · stats.ts · auth.ts · mailer.ts · ratelimit.ts
+    └── markdown.ts              # escape-first markdown renderer
+```
 
 ---
 
 ## How it works
 
-1. **Detect** — `detectPlatform()` matches the pasted URL's host against the platform registry in [`src/lib/platforms.ts`](src/lib/platforms.ts). Adding a platform is one object in that array.
-2. **Resolve** — `POST /api/resolve` checks a TTL cache first (`ResolveCache`), then calls the provider, normalises the response and logs the call to `ApiCall`.
-3. **Download** — `GET /api/download` streams the chosen file through the server so it saves with a clean filename in every browser. Private/loopback destinations are blocked (SSRF guard) and range requests pass through.
-4. **Track** — every request touches a `Visitor` row keyed by an anonymous cookie; `PageTracker` records each route change as a `PageView`.
+1. **Detect** — `detectPlatform()` matches the pasted URL's hostname against the registry in [`src/lib/platforms.ts`](src/lib/platforms.ts). Tracking parameters are stripped first.
+2. **Resolve** — `POST /api/resolve` checks the TTL cache (`ResolveCache`), then calls the provider, normalises the response into one predictable format list, and logs the call to `ApiCall` with its latency.
+3. **Download** — `GET /api/download` streams the chosen file through the server so it saves with a clean filename in every browser. Loopback and private-range destinations are blocked (SSRF guard); range requests pass through for seeking.
+4. **Convert** — image tools run entirely client-side; only an anonymous `ToolUsage` row is posted afterwards.
+5. **Track** — every request upserts a `Visitor` keyed by an anonymous cookie, and each route change records a `PageView`, producing the per-visitor footstep trail in the admin panel.
 
-Nothing is ever written to disk: media is piped straight from the source CDN to the visitor.
+Media is never written to disk — it is piped straight from the source CDN to the visitor.
 
-### Rate limits
+**Rate limits** (per IP, in memory): 20 resolves/min · 30 downloads/min · 60 tool runs/min · 5 contact posts/10 min · 8 login attempts/10 min. Swap [`src/lib/ratelimit.ts`](src/lib/ratelimit.ts) for Redis when you run more than one instance.
 
-In-memory per IP: 20 resolves/min, 30 downloads/min, 5 contact posts per 10 min, 8 login attempts per 10 min. Swap [`src/lib/ratelimit.ts`](src/lib/ratelimit.ts) for Redis when you run more than one instance.
+---
+
+## SEO
+
+Implemented across every route, not just the home page:
+
+- **Metadata** — per-page title templates, descriptions, keywords and canonicals; `metadataBase` so every relative URL resolves absolutely.
+- **Dynamic OG images** — `/api/og` renders a branded 1200×630 card per page via `next/og`; wired into both Open Graph and Twitter card tags.
+- **Structured data** — `Organization` + `WebSite` (with SearchAction) on the home page, `SoftwareApplication` + `HowTo` + `FAQPage` + `BreadcrumbList` on tool and platform pages, `BlogPosting` + `BreadcrumbList` on articles, `CollectionPage` + `ItemList` on the tools index.
+- **Crawl control** — generated `sitemap.xml` covering all 37 public URLs (static pages, 14 platforms, 9 tools, every published post), `robots.txt` that blocks `/admin` and `/api/` while explicitly allowing `/api/og`, and `googleBot` directives for large image previews.
+- **PWA/manifest** — `manifest.webmanifest`, SVG icon, theme colours per colour scheme.
+- **On-page** — one `<h1>` per route, visible breadcrumbs, internal linking between related tools and platforms, semantic landmarks, alt text and a skip link.
+
+Verify locally with `curl localhost:3000/sitemap.xml` or paste any page into Google's Rich Results Test.
+
+---
+
+## Admin panel
+
+| Page | What it shows |
+| --- | --- |
+| **Dashboard** | 7-day downloads, visitors, page views and success rate with deltas; 14-day traffic area chart; platform bars; country and device donuts; provider health; recent activity |
+| **Downloads** | Every resolve and transfer — source link, format, size, IP, country, status — filterable by platform and status |
+| **Visitors** | Unique visitors with IP, geo, device, browser and visit counts; searchable by IP, country or city |
+| **Visitor detail** | The full footsteps trail — every page view in order, plus that visitor's download history |
+| **Tools usage** | Runs per tool, files processed, bytes in/out and average size saving |
+| **API usage** | Call volume, billable vs cached calls, cache hit rate, latency, failures, per-provider and per-platform breakdown |
+| **Blog posts** | Create, edit, publish/unpublish, delete — with live markdown preview |
+| **Messages** | Contact inbox with reply, mark-handled and delete |
+| **Subscribers** | Newsletter list with copy-all |
+| **Settings** | Environment status readout plus editable tagline, contact email and site-wide announcement banner |
+
+Auth is a JWT in an httpOnly cookie, 8-hour expiry, bcrypt-hashed passwords, brute-force limited. `/admin` is `noindex` and blocked in robots.txt.
+
+---
+
+## API reference
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/resolve` | `{ url }` → normalised media with every available format |
+| `GET` | `/api/download` | Streams a chosen format as an attachment |
+| `POST` | `/api/contact` | Validates, stores and emails a contact message |
+| `POST` | `/api/subscribe` | Newsletter signup |
+| `POST` | `/api/track` | Records a page view |
+| `POST` | `/api/tools/track` | Records an anonymous tool run |
+| `GET` | `/api/og` | Renders a social preview card |
+| `POST` | `/api/admin/login` · `/logout` | Session management |
+| `POST`/`DELETE` | `/api/admin/blogs` | Blog CRUD (auth required) |
+| `PATCH`/`DELETE` | `/api/admin/messages` | Inbox management (auth required) |
+| `POST` | `/api/admin/settings` | Site settings (auth required) |
 
 ---
 
 ## Deploying
 
-1. Change `AUTH_SECRET` (`openssl rand -base64 32`), `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
-2. Set `NEXT_PUBLIC_SITE_URL` to your real domain — canonicals and the sitemap use it.
-3. **Move off SQLite.** In `prisma/schema.prisma` set `provider = "postgresql"`, point `DATABASE_URL` at your database and run `npx prisma db push && npm run seed`. Serverless hosts do not keep a writable SQLite file.
-4. Deploy. On Vercel, `x-vercel-ip-country`/`-city` headers populate visitor geo automatically; behind Cloudflare, `cf-ipcountry` is used instead.
+1. **Change the secrets.** `AUTH_SECRET` (`openssl rand -base64 32`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`. Re-run `npm run seed`.
+2. **Set `NEXT_PUBLIC_SITE_URL`** to your real domain — canonicals, the sitemap and OG images all derive from it.
+3. **Move off SQLite.** In `prisma/schema.prisma` set `provider = "postgresql"`, point `DATABASE_URL` at your database, then `npx prisma db push && npm run seed`. Serverless platforms have no persistent writable disk.
+4. **Deploy.** On Vercel the `x-vercel-ip-country` / `-city` headers populate visitor geo automatically; behind Cloudflare, `cf-ipcountry` is used instead. No extra configuration needed.
 
 ```bash
 npm run build && npm start
 ```
+
+---
 
 ## Scripts
 
 | Command | Does |
 | --- | --- |
 | `npm run dev` | Dev server |
-| `npm run build` / `start` | Production build / serve |
+| `npm run build` / `npm start` | Production build / serve |
 | `npm run setup` | generate + db push + seed |
 | `npm run seed` | Re-seed admin, posts and settings |
 | `npm run db:studio` | Prisma Studio |
 | `npm run lint` | ESLint |
 
-## Legal note
+---
 
-SnapGrab hosts no media and only processes publicly accessible links. Users are responsible for having the right to keep what they download; the DMCA page documents the takedown process.
+## Roadmap
+
+- PDF tools (merge, split, compress, image→PDF)
+- Local audio and video conversion via ffmpeg.wasm
+- Batch and playlist downloads with a queue
+- Redis-backed rate limiting and cache for multi-instance deploys
+
+---
+
+## Legal
+
+SnapGrab hosts no media and only processes publicly accessible links. Users are responsible for holding the rights to whatever they download; the [DMCA page](/dmca) documents the takedown process, and the [privacy policy](/privacy) describes exactly what is logged and why.
+
+Not affiliated with YouTube, Meta, TikTok, X, Pinterest, Reddit, Snapchat, LinkedIn, Vimeo, Dailymotion, SoundCloud or Twitch. All trademarks belong to their respective owners.
+
+Licensed under the [MIT License](LICENSE).

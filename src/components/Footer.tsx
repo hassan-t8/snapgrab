@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, Mail, Shield } from "lucide-react";
 import { BrandGithub, BrandInstagram, BrandX } from "./BrandIcons";
 import { PLATFORMS } from "@/lib/platforms";
+import { TOOLS } from "@/lib/tools";
 import Newsletter from "./Newsletter";
 
 export default function Footer() {
@@ -11,7 +12,7 @@ export default function Footer() {
       <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[52rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-[100px]" />
 
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+        <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2.5">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-500">
@@ -51,9 +52,15 @@ export default function Footer() {
           />
 
           <FooterCol
+            title="Free tools"
+            links={TOOLS.slice(0, 7).map((t) => ({ href: `/tools/${t.slug}`, label: t.name }))}
+          />
+
+          <FooterCol
             title="Company"
             links={[
               { href: "/about", label: "About us" },
+              { href: "/tools", label: "All tools" },
               { href: "/contact", label: "Contact" },
               { href: "/blog", label: "Blog" },
               { href: "/faq", label: "FAQ" },

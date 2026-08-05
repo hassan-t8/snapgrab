@@ -156,3 +156,21 @@ model Setting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+/// Usage of the client-side tools (converter, compressor, resizer …)
+model ToolUsage {
+  id         String   @id @default(cuid())
+  tool       String
+  inputType  String?
+  outputType String?
+  files      Int      @default(1)
+  bytesIn    Int?
+  bytesOut   Int?
+  visitorId  String?
+  ip         String?
+  country    String?
+  createdAt  DateTime @default(now())
+
+  @@index([tool])
+  @@index([createdAt])
+}

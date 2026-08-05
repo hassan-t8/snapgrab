@@ -8,6 +8,7 @@ import { renderMarkdown } from "@/lib/markdown";
 import { Reveal } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
 import ShareRow from "@/components/ShareRow";
+import { breadcrumbJsonLd, jsonLd, ogImage, siteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,13 @@ export async function generateMetadata({ params }: PageProps<"/blog/[slug]">): P
       title: post.title,
       description: post.excerpt,
       publishedTime: post.createdAt.toISOString(),
-      images: post.cover ? [post.cover] : undefined,
+      images: [post.cover ?? ogImage({ title: post.title, subtitle: post.excerpt, badge: "SnapGrab blog" })],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.excerpt,
+      images: [post.cover ?? ogImage({ title: post.title, subtitle: post.excerpt, badge: "SnapGrab blog" })],
     },
   };
 }
@@ -136,18 +143,26 @@ export default async function BlogPost({ params }: PageProps<"/blog/[slug]">) {
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+        dangerouslySetInnerHTML={jsonLd(
+          {
             "@context": "https://schema.org",
             "@type": "BlogPosting",
             headline: post.title,
             description: post.excerpt,
             image: post.cover ?? undefined,
+            wordCount: post.content.split(/\s+/).length,
             author: { "@type": "Organization", name: post.author },
+            publisher: { "@type": "Organization", name: "SnapGrab", url: siteUrl() },
+            mainEntityOfPage: { "@type": "WebPage", "@id": `${siteUrl()}/blog/${post.slug}` },
             datePublished: post.createdAt.toISOString(),
             dateModified: post.updatedAt.toISOString(),
-          }),
-        }}
+          },
+          breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Blog", path: "/blog" },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+        )}
       />
     </article>
   );
