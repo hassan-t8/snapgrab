@@ -19,11 +19,14 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  // a malformed body is a client bug, not something to swallow silently
+  const raw = await req.json().catch(() => null);
+  const parsed = Body.safeParse(raw);
+  if (!parsed.success || !TOOL_MAP[parsed.data.tool]) {
+    return NextResponse.json({ ok: false, error: "Invalid tool payload." }, { status: 400 });
+  }
+
   try {
-    const parsed = Body.safeParse(await req.json());
-    if (!parsed.success || !TOOL_MAP[parsed.data.tool]) {
-      return NextResponse.json({ ok: false }, { status: 400 });
-    }
 
     if (!(await isServiceEnabled("tool", parsed.data.tool))) {
       return NextResponse.json({ ok: false, error: "Service disabled" }, { status: 503 });

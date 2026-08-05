@@ -39,9 +39,9 @@ export async function PATCH(req: Request) {
   for (const u of valid) {
     const note = u.note?.trim() ? u.note.trim() : null;
     await prisma.serviceToggle.upsert({
-      where: { key: u.key },
+      where: { kind_key: { kind: u.kind, key: u.key } },
       create: { key: u.key, kind: u.kind, enabled: u.enabled, note },
-      update: { kind: u.kind, enabled: u.enabled, note },
+      update: { enabled: u.enabled, note },
     });
   }
 

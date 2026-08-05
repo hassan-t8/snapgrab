@@ -152,6 +152,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
   }
 
   async function processOne(job: Job): Promise<Job> {
+    if (job.outUrl) URL.revokeObjectURL(job.outUrl); // re-running must not orphan the old blob
     const { bitmap, width: sw, height: sh } = await decode(job.file);
 
     let dw = sw;
@@ -277,6 +278,8 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
 
     if (mode === "favicon") {
       const produced = await runFavicon();
+      // release the previous run's object URLs before replacing them
+      jobs.forEach((j) => j.outUrl && URL.revokeObjectURL(j.outUrl));
       setJobs((prev) => [...prev.filter((j) => j.status === "error"), ...produced]);
       setBusy(false);
       if (produced.length) {
@@ -350,7 +353,9 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
       const target = prev.find((j) => j.id === id);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
       if (target?.outUrl) URL.revokeObjectURL(target.outUrl);
-      return prev.filter((j) => j.id !== id);
+      const rest = prev.filter((j) => j.id !== id);
+      if (!rest.length) setDataUri("");
+      return rest;
     });
   }
 
@@ -360,6 +365,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
       if (j.outUrl) URL.revokeObjectURL(j.outUrl);
     });
     setJobs([]);
+    setDataUri("");
   }
 
   const doneJobs = jobs.filter((j) => j.status === "done");

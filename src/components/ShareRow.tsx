@@ -5,17 +5,25 @@ import { Check, Link2, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { BrandX } from "./BrandIcons";
 
-export default function ShareRow({ title, slug }: { title: string; slug: string }) {
+export default function ShareRow({ title, url }: { title: string; url: string }) {
   const [copied, setCopied] = useState(false);
-
-  const url = typeof window !== "undefined" ? window.location.href : `/blog/${slug}`;
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {}
+    } catch {
+      // clipboard API needs a secure context — fall back so the button still works over http
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {}
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   }
 
   async function nativeShare() {

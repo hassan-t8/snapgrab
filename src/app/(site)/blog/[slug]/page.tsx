@@ -105,7 +105,7 @@ export default async function BlogPost({ params }: PageProps<"/blog/[slug]">) {
           <AdSlot className="h-[90px]" />
         </div>
 
-        <ShareRow title={post.title} slug={post.slug} />
+        <ShareRow title={post.title} url={`${siteUrl()}/blog/${post.slug}`} />
 
         <Reveal>
           <div className="mt-10 rounded-2xl bg-gradient-to-br from-brand-600 to-accent-500 p-7 text-center text-white">
