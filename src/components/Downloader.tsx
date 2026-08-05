@@ -193,7 +193,9 @@ export default function Downloader({
                   spellCheck={false}
                   placeholder={placeholder}
                   aria-label="Video link"
-                  className="w-full rounded-2xl surface py-4 pl-12 pr-28 text-[15px] outline-none transition-all placeholder:text-muted focus:border-brand-400 focus:shadow-[0_0_0_4px_rgba(112,72,240,.14)]"
+                  className={`w-full rounded-2xl surface py-4 pl-12 text-[15px] outline-none transition-all placeholder:text-muted focus:border-brand-400 focus:shadow-[0_0_0_4px_rgba(112,72,240,.14)] ${
+                    detected ? "pr-40" : url ? "pr-12" : "pr-4"
+                  }`}
                 />
                 <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
                   <AnimatePresence mode="wait">
@@ -288,9 +290,12 @@ export default function Downloader({
             className="mt-5 overflow-hidden rounded-[26px] surface"
           >
             {result.demo && (
-              <div className="flex items-center gap-2 bg-amber-500/15 px-5 py-2.5 text-xs font-medium text-amber-400">
-                <Sparkles className="h-3.5 w-3.5" />
-                Demo mode — add your RapidAPI key in <code className="font-mono">.env</code> to return real media.
+              <div className="flex items-start gap-2 bg-amber-500/15 px-5 py-2.5 text-xs font-medium leading-relaxed text-amber-400">
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Demo mode — add your RapidAPI key in <code className="whitespace-nowrap font-mono">.env</code> to
+                  return real media.
+                </span>
               </div>
             )}
 
