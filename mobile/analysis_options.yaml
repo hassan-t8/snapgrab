@@ -1,0 +1,10 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # collection-if reads better than the null-aware map marker in this codebase
+    use_null_aware_elements: false
+
+analyzer:
+  errors:
+    invalid_null_aware_operator: error

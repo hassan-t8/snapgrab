@@ -2,7 +2,7 @@
 
 # SnapGrab
 
-**An all-in-one media downloader and browser toolkit.**
+**An all-in-one media downloader and browser toolkit — on the web and on your phone.**
 Paste a link from 14 platforms to get the file — plus 24 offline tools for images, PDFs, text and generators that never upload a byte.
 
 Ships with a complete admin panel: visitor tracking, download logs, API-quota monitoring, tool analytics, a blog CMS and an SMTP contact inbox.
@@ -16,6 +16,7 @@ Ships with a complete admin panel: visitor tracking, download logs, API-quota mo
 ## Table of contents
 
 - [Quick start](#quick-start)
+- [Mobile app](#mobile-app)
 - [Configuration](#configuration)
 - [Features](#features)
 - [Project structure](#project-structure)
@@ -49,6 +50,21 @@ npm run dev               # http://localhost:3000
 | **Login** | `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (default `admin@snapgrab.app` / `Admin@12345`) |
 
 > **Demo mode.** With no RapidAPI key set, link resolves return sample media so you can exercise the whole product — UI, logging, dashboard, charts — before paying for anything. The image tools are fully functional either way, because they never touch the server. Add `RAPIDAPI_KEY` and demo mode switches off automatically.
+
+---
+
+## Mobile app
+
+A native Flutter client lives in [`mobile/`](mobile/README.md) and shares this server.
+
+```bash
+cd mobile && flutter pub get
+flutter run --dart-define=SNAPGRAB_API=http://<your-lan-ip>:3001
+```
+
+It carries the downloader with clipboard detection, 13 on-device tools, a download manager, the blog and a contact form — themed to match the site. Anything switched off in **Admin → Services** disappears from the app too, because it reads the same `/api/services` catalogue.
+
+See the [app README](mobile/README.md) for build commands, permissions and known limitations.
 
 ---
 
@@ -222,6 +238,7 @@ src/
 │   ├── api/                     # resolve, download, contact, track, og, admin
 │   ├── sitemap.ts · robots.ts · manifest.ts · icon.svg
 │   └── layout.tsx               # html shell, fonts, metadata, theme script
+├── ../mobile/                   # Flutter app (see mobile/README.md)
 ├── components/
 │   ├── admin/                   # shell, charts, tables, editors
 │   ├── tools/                   # ImageStudio · PdfStudio · TextStudio · GeneratorStudio
@@ -297,6 +314,8 @@ Auth is a JWT in an httpOnly cookie, 8-hour expiry, bcrypt-hashed passwords, bru
 | `POST` | `/api/track` | Records a page view |
 | `POST` | `/api/tools/track` | Records an anonymous tool run |
 | `GET` | `/api/og` | Renders a social preview card |
+| `GET` | `/api/blog` | Public post feed (`?slug=` for one post) — used by the app |
+| `GET` | `/api/services` | Live catalogue of enabled tools and platforms — used by the app |
 | `POST` | `/api/admin/login` · `/logout` | Session management |
 | `POST`/`DELETE` | `/api/admin/blogs` | Blog CRUD (auth required) |
 | `PATCH`/`DELETE` | `/api/admin/messages` | Inbox management (auth required) |
@@ -344,6 +363,7 @@ npx next dev -H 0.0.0.0 -p 3001
 
 ## Roadmap
 
+- PDF tools in the mobile app
 - Local audio and video conversion via ffmpeg.wasm
 - PDF compression and page reordering by drag
 - Batch and playlist downloads with a queue
