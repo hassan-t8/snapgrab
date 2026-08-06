@@ -95,6 +95,9 @@ model ApiCall {
   latencyMs  Int
   cached     Boolean  @default(false)
   errorMsg   String?
+  /// remaining calls on the provider plan, as reported by its rate-limit headers
+  quotaRemaining Int?
+  quotaLimit     Int?
   createdAt  DateTime @default(now())
 
   @@index([createdAt])

@@ -17,7 +17,7 @@ export default async function ApiUsagePage({ searchParams }: PageProps<"/admin/a
   const d30 = daysAgo(30);
   const d1 = daysAgo(1);
 
-  const [rows, total, calls30, calls24, failed30, cached30, latency, byProvider, byPlatform, cache] = await Promise.all([
+  const [rows, total, calls30, calls24, failed30, cached30, latency, byProvider, byPlatform, cache, quota] = await Promise.all([
     prisma.apiCall.findMany({ orderBy: { createdAt: "desc" }, skip: (page - 1) * PER_PAGE, take: PER_PAGE }),
     prisma.apiCall.count(),
     prisma.apiCall.count({ where: { createdAt: { gte: d30 } } }),
@@ -28,6 +28,12 @@ export default async function ApiUsagePage({ searchParams }: PageProps<"/admin/a
     prisma.apiCall.groupBy({ by: ["provider"], _count: { _all: true } }),
     prisma.apiCall.groupBy({ by: ["platform"], _count: { _all: true }, orderBy: { _count: { platform: "desc" } }, take: 8 }),
     prisma.resolveCache.aggregate({ _count: { _all: true }, _sum: { hits: true } }),
+    // the newest reading of the provider's own rate-limit headers
+    prisma.apiCall.findFirst({
+      where: { quotaRemaining: { not: null } },
+      orderBy: { createdAt: "desc" },
+      select: { quotaRemaining: true, quotaLimit: true, createdAt: true, provider: true },
+    }),
   ]);
 
   const billable = calls30 - cached30;
@@ -45,6 +51,42 @@ export default async function ApiUsagePage({ searchParams }: PageProps<"/admin/a
               go live.
             </p>
           </div>
+        </div>
+      )}
+
+      {quota?.quotaRemaining != null && (
+        <div
+          className={`flex flex-wrap items-center gap-3 rounded-2xl border p-4 ${
+            quota.quotaRemaining <= 20
+              ? "border-red-500/30 bg-red-500/10"
+              : quota.quotaRemaining <= 100
+                ? "border-amber-500/30 bg-amber-500/10"
+                : "border-accent-500/30 bg-accent-500/10"
+          }`}
+        >
+          <Gauge
+            className={`h-5 w-5 shrink-0 ${
+              quota.quotaRemaining <= 20 ? "text-red-400" : quota.quotaRemaining <= 100 ? "text-amber-400" : "text-accent-400"
+            }`}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">
+              Provider plan: {quota.quotaRemaining.toLocaleString()}
+              {quota.quotaLimit ? ` of ${quota.quotaLimit.toLocaleString()}` : ""} calls left this period
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              Reported by {quota.provider} · read {format(quota.createdAt, "d MMM, HH:mm")}. Cached resolves do not
+              count against it.
+            </p>
+          </div>
+          {quota.quotaLimit ? (
+            <div className="h-2 w-full max-w-[220px] overflow-hidden rounded-full bg-[var(--bg-soft)]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500"
+                style={{ width: `${Math.max(2, (quota.quotaRemaining / quota.quotaLimit) * 100)}%` }}
+              />
+            </div>
+          ) : null}
         </div>
       )}
 

@@ -25,6 +25,8 @@ async function logApiCall(data: {
   latencyMs: number;
   cached?: boolean;
   errorMsg?: string;
+  quotaRemaining?: number | null;
+  quotaLimit?: number | null;
 }) {
   try {
     await prisma.apiCall.create({ data });
@@ -236,6 +238,10 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
     status = res.status;
     const text = await res.text();
 
+    // RapidAPI reports the remaining monthly allowance on every response
+    const quotaRemaining = Number(res.headers.get("x-ratelimit-requests-remaining"));
+    const quotaLimit = Number(res.headers.get("x-ratelimit-requests-limit"));
+
     if (!res.ok) {
       const msg =
         status === 429
@@ -252,7 +258,28 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
     } catch {
       throw new ProviderError("Downloader service returned an unreadable response.", "BAD_JSON");
     }
-    if (json.error && typeof json.error === "string") throw new ProviderError(json.error, "UPSTREAM");
+    // some hosts answer 200 with {error:true, message:"..."}; surface that reason
+    const upstreamMessage =
+      typeof json.message === "string"
+        ? json.message
+        : typeof json.error === "string"
+          ? json.error
+          : undefined;
+
+    if (json.error === true || (json.error && typeof json.error === "string")) {
+      // upstream wording is terse and often ungrammatical, so map it to our own copy
+      const detail = upstreamMessage ?? "";
+      const friendly = /private|restricted|consent|cookie|login/i.test(detail)
+        ? "That post is private or restricted, so it cannot be downloaded."
+        : /not found|no medias?|404/i.test(detail)
+          ? "Nothing was found at that link. Check it is complete and the post still exists."
+          : /region|country|geo/i.test(detail)
+            ? "That video is blocked in the region our server runs from."
+            : /limit|quota|exceed/i.test(detail)
+              ? "The downloader has hit its plan limit. Please try again later."
+              : "The downloader could not read that link. It may be private, deleted or unsupported.";
+      throw new ProviderError(friendly, "UPSTREAM");
+    }
 
     const media = normalizeProviderPayload(json, url, platform.id, platform.name);
 
@@ -279,6 +306,8 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
       status,
       ok: true,
       latencyMs: Date.now() - started,
+      quotaRemaining: Number.isFinite(quotaRemaining) ? quotaRemaining : null,
+      quotaLimit: Number.isFinite(quotaLimit) ? quotaLimit : null,
     });
     return media;
   } catch (err) {
