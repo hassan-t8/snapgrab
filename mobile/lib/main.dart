@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/downloads.dart';
 import 'core/notifications.dart';
+import 'core/prefs.dart';
 import 'core/theme.dart';
 import 'screens/player_screen.dart';
+import 'screens/splash_screen.dart';
 import 'widgets/download_bar.dart';
 import 'screens/blog_screen.dart';
 import 'screens/downloads_screen.dart';
@@ -41,8 +43,15 @@ Future<void> saveThemeMode(ThemeMode mode) async {
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
+/// Whether onboarding had already been completed when this launch began.
+/// Onboarding asks for notification permission itself, so returning users are
+/// the only ones the shell needs to prompt.
+bool _returningUser = false;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Prefs.init();
+  _returningUser = Prefs.hasOnboarded;
   await loadThemeMode();
   await Notifications.init();
 
@@ -84,7 +93,7 @@ class SnapGrabApp extends StatelessWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,
-        home: const RootShell(),
+        home: const SplashScreen(),
       ),
     );
   }
@@ -104,7 +113,8 @@ class _RootShellState extends State<RootShell> {
   @override
   void initState() {
     super.initState();
-    // ask once, and only after the first frame so it never blocks startup
+    // first-run users are asked at the end of onboarding, where it has context
+    if (!_returningUser) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_askedForNotifications) return;
       _askedForNotifications = true;

@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/platforms.dart';
+import '../core/prefs.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'result_sheet.dart';
@@ -25,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _error;
   ResolvedMedia? _result;
   bool _clipboardOffered = false;
+  List<String> _recent = Prefs.recentLinks;
 
   @override
   void initState() {
@@ -100,13 +102,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     try {
       final media = await Api.instance.resolve(clean);
+      await Prefs.addRecentLink(clean);
+      HapticFeedback.mediumImpact();
       if (!mounted) return;
       setState(() {
         _result = media;
         _loading = false;
+        _recent = Prefs.recentLinks;
       });
       _showResult(media);
     } on ApiException catch (e) {
+      HapticFeedback.heavyImpact();
       if (!mounted) return;
       setState(() {
         _error = e.message;
@@ -160,9 +166,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 14),
                   ErrorBanner(message: _error!, onRetry: _resolve),
                 ],
+                if (_loading) ...[
+                  const SizedBox(height: 14),
+                  _resolvingCard(),
+                ],
                 if (_result != null && !_loading) ...[
                   const SizedBox(height: 14),
                   _lastResultCard(),
+                ],
+                if (_recent.isNotEmpty && !_loading) ...[
+                  const SizedBox(height: 22),
+                  _recentStrip(),
                 ],
                 const SizedBox(height: 30),
                 _supportedStrip(),
@@ -336,6 +350,113 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ],
       ),
     ).animate().fadeIn(duration: 320.ms);
+  }
+
+  /// Skeleton while the server reads the link, so the wait has a shape.
+  Widget _resolvingCard() => Surface(
+        child: Row(
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(color: context.c.soft, borderRadius: BorderRadius.circular(12)),
+            )
+                .animate(onPlay: (c) => c.repeat())
+                .shimmer(duration: 1300.ms, color: context.c.line.withValues(alpha: 0.6)),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(height: 13, width: 190),
+                  const SizedBox(height: 8),
+                  ShimmerBox(height: 11, width: 120),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Brand.brand400),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Reading the link…',
+                          style: TextStyle(color: context.c.muted, fontSize: 11.5)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ).animate().fadeIn(duration: 260.ms);
+
+  /// The last handful of links, so re-downloading is one tap.
+  Widget _recentStrip() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.history_rounded, size: 16, color: context.c.muted),
+            const SizedBox(width: 7),
+            const Text('Recent links', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () async {
+                await Prefs.clearRecentLinks();
+                if (mounted) setState(() => _recent = const []);
+              },
+              child: Text('Clear', style: TextStyle(color: context.c.muted, fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ..._recent.take(4).map((url) {
+          final platform = detectPlatform(url);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Surface(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              onTap: () {
+                _controller.text = url;
+                _resolve();
+              },
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: platform?.color ?? context.c.muted,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(platform?.name ?? 'Link',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                        const SizedBox(height: 2),
+                        Text(
+                          url.replaceFirst(RegExp(r'^https?://(www\.)?'), ''),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: context.c.muted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.refresh_rounded, size: 17, color: context.c.muted),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    ).animate().fadeIn(duration: 380.ms);
   }
 
   Widget _supportedStrip() {

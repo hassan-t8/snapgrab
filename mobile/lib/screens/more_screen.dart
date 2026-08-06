@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../core/api.dart';
 import '../core/config.dart';
-import '../core/models.dart';
 import '../core/theme.dart';
 import '../main.dart';
 import '../widgets/common.dart';
+import 'contact_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -205,130 +204,4 @@ class MoreScreen extends StatelessWidget {
           ),
         ),
       );
-}
-
-class ContactScreen extends StatefulWidget {
-  const ContactScreen({super.key});
-
-  @override
-  State<ContactScreen> createState() => _ContactScreenState();
-}
-
-class _ContactScreenState extends State<ContactScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _message = TextEditingController();
-  String _subject = 'General question';
-  bool _sending = false;
-  bool _sent = false;
-  String? _error;
-
-  static const _subjects = [
-    'General question',
-    'A link failed',
-    'Platform request',
-    'Copyright / DMCA',
-    'Advertising',
-    'Other',
-  ];
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _message.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _sending = true;
-      _error = null;
-    });
-    try {
-      await Api.instance.contact(
-        name: _name.text.trim(),
-        email: _email.text.trim(),
-        subject: _subject,
-        message: _message.text.trim(),
-      );
-      if (!mounted) return;
-      setState(() {
-        _sent = true;
-        _sending = false;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.message;
-        _sending = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Contact us')),
-      body: _sent
-          ? EmptyState(
-              icon: Icons.mark_email_read_rounded,
-              title: 'Message received',
-              message: 'We reply to almost everything within one business day.',
-              action: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Back'),
-              ),
-            )
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
-                children: [
-                  if (_error != null) ...[ErrorBanner(message: _error!), const SizedBox(height: 16)],
-                  TextFormField(
-                    controller: _name,
-                    decoration: const InputDecoration(labelText: 'Your name'),
-                    validator: (v) => (v ?? '').trim().length < 2 ? 'Please enter your name.' : null,
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email address'),
-                    validator: (v) =>
-                        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch((v ?? '').trim()) ? null : 'Enter a valid email.',
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: _subject,
-                    decoration: const InputDecoration(labelText: 'Subject'),
-                    items: [for (final s in _subjects) DropdownMenuItem(value: s, child: Text(s))],
-                    onChanged: (v) => setState(() => _subject = v ?? _subject),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _message,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      labelText: 'Message',
-                      alignLabelWithHint: true,
-                      hintText: 'Tell us what happened, and paste the link you tried.',
-                    ),
-                    validator: (v) => (v ?? '').trim().length < 10 ? 'Please add a little more detail.' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  GradientButton(
-                    label: 'Send message',
-                    icon: Icons.send_rounded,
-                    busy: _sending,
-                    onPressed: _submit,
-                  ),
-                ],
-              ),
-            ),
-    );
-  }
 }

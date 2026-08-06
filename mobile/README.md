@@ -30,12 +30,23 @@ flutter build ipa --release   --dart-define=SNAPGRAB_API=https://your-domain.com
 
 ## What is in the app
 
+### First launch
+
+A branded **splash** holds the first frame while the app initialises — the mark scales in with a shimmer over the same aurora the rest of the app uses, so it belongs to the product rather than being a stock loader.
+
+**Onboarding** then runs, once and only once. Four slides explain the paste-a-link flow, the format picker, the offline tools and the download notifications, each with a colour that bleeds into the background so progress is felt as well as seen. Skip is always available. The completion flag lives in `SharedPreferences` and is covered by tests, so a relaunch goes straight to the app.
+
+Notification permission is requested at the **end of onboarding**, where the last slide has just explained what the notifications are for — not on the splash, where it would be an ambush. Returning users who updated into this build are asked once on first open instead.
+
 ### Download tab
 - **Clipboard detection** — the app checks the clipboard on launch and every time it returns to the foreground, so a link copied in YouTube or Instagram is picked up before you touch anything.
 - **Live platform badge** as you type, from a local registry of all 14 platforms, so detection is instant and works offline.
 - Results open in a draggable sheet grouped into **Video / Audio / Images**, with quality, container and file size on every row.
 - Tapping a quality shows a **spinner on that row** immediately, so the tap visibly registers before the sheet closes.
+- A **skeleton card** with a shimmer fills the gap while the server reads the link, so the wait has a shape instead of a frozen button.
+- **Recent links** — the last five resolved URLs, each tagged with its platform colour, re-download in one tap. Clearable.
 - Downloads **stream to disk with live progress**, can be cancelled mid-flight, and land in the gallery via the platform's media store.
+- Haptics confirm the outcome: a medium tap on success, a heavier one on failure.
 
 ### Knowing what is happening
 
@@ -58,7 +69,7 @@ The notification carries buttons, so the shade is a real control surface rather 
 
 Tapping the body of a finished notification does the same as **Play**. The payload carries `task:<id>` while a download runs so Cancel knows which one to stop, and the file path once it finishes so Play knows what to open — and the player gets the real video title rather than the on-disk filename.
 
-Notification permission is requested after the first frame, never on the splash, and everything degrades quietly if the user declines.
+Everything degrades quietly if the user declines the permission — the floating bar and Files tab still report progress.
 
 ### Built-in player
 
@@ -79,8 +90,12 @@ Image work runs on a **background isolate** via `package:image`, so a 4000px pho
 ### Files tab
 Every download from the session with progress, cancel, share, and where the file landed.
 
+### Contact support
+
+A form built to be answered rather than ignored: a header card stating the response time and support address, **subject chips** instead of a dropdown, and a message hint that changes with the subject — pick "A link failed" and it asks for the link you tried. There is a live character counter, inline validation that names the actual problem, and a success state that confirms which address the reply is going to. A footer states plainly what is stored and links to the privacy policy.
+
 ### Blog + More
-Guides pulled from `/api/blog` with a small markdown renderer, plus contact form, theme switch (dark / light / system) and links to the legal pages.
+Guides pulled from `/api/blog` with a small markdown renderer, plus theme switch (dark / light / system) and links to the legal pages.
 
 ---
 
@@ -90,6 +105,7 @@ Guides pulled from `/api/blog` with a small markdown renderer, plus contact form
 lib/
 ├── core/
 │   ├── config.dart       # API base, injected at build time
+│   ├── prefs.dart        # onboarding flag and recent links
 │   ├── api.dart          # typed client; every failure becomes a readable message
 │   ├── models.dart       # ResolvedMedia, MediaFormat, Platform, BlogPost
 │   ├── platforms.dart    # offline link detection + URL normalisation
@@ -97,7 +113,8 @@ lib/
 │   ├── image_tools.dart  # isolate-backed convert / compress / resize
 │   ├── text_tools.dart   # pure functions behind the text + generator tools
 │   └── notifications.dart # progress, completion and failure notifications
-├── screens/              # home · result sheet · tools · files · player · blog · more
+├── screens/              # splash · onboarding · home · result sheet · tools
+│                         # files · player · blog · contact · more
 ├── widgets/
 │   ├── common.dart       # Surface, GradientButton, Aurora, staggered animations
 │   └── download_bar.dart # the floating progress strip
@@ -148,10 +165,10 @@ Android gets an adaptive icon (brand background + white glyph foreground); iOS g
 
 ```bash
 flutter analyze   # 0 issues
-flutter test      # 10 unit tests
+flutter test      # 16 unit tests
 ```
 
-The tests cover link detection across all platforms, URL normalisation and tracking-parameter stripping, the nine case conversions, Base64 round-tripping with emoji, the known SHA-256 vector for `"abc"`, UUID v4 layout and password generation.
+The tests cover link detection across all platforms, URL normalisation and tracking-parameter stripping, the nine case conversions, Base64 round-tripping with emoji, the known SHA-256 vector for `"abc"`, UUID v4 layout, password generation, and the onboarding flag surviving a relaunch so the intro cannot run twice.
 
 Verified on a **Galaxy S23 FE** against a live server with a real RapidAPI key: clipboard detection picked up a copied YouTube link on its own, the platform badge lit up, 25 formats came back, and a **41 MB MP4 downloaded to completion and saved to the gallery**. Also verified on an Android 17 emulator across all five tabs.
 
@@ -168,4 +185,5 @@ Verified on a **Galaxy S23 FE** against a live server with a real RapidAPI key: 
 - **WEBP encoding** is not available on-device, so the image converter offers JPG and PNG output. WEBP files can still be read in.
 - **PDF tools are web-only** for now; `pdf-lib` has no Dart equivalent in this project yet.
 - iOS builds have not been run on hardware here — no macOS signing identity was configured. The Android path is verified end to end.
-- The notifications (including the Cancel and Play buttons), floating bar, player, save-button spinner and tool search all compile clean and pass the analyzer, and the release APK installs on a Galaxy S23 FE — but they have **not yet been watched running on the device**, because the test phone was in use every time verification was attempted. The download pipeline beneath them *is* verified: a 41 MB YouTube video downloaded to completion and saved to the gallery on that handset.
+- **Verified on a Galaxy S23 FE:** the splash, the first onboarding slide, the contact screen (including the subject-aware message hint), clipboard detection, resolving a real link into 25 formats, and a 41 MB MP4 downloading to completion and saving to the gallery.
+- **Not yet watched on the device:** the notification buttons, the floating bar, the player, the recent-links strip and tool search. They compile clean, pass the analyzer and ship in an APK that installs — but the test handset was in active use, so nothing here claims more than that. The once-only onboarding flag is covered by tests rather than a device run.
