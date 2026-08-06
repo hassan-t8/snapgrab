@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/downloads.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import 'player_screen.dart';
 
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key});
@@ -35,7 +36,7 @@ class DownloadsScreen extends StatelessWidget {
             return const EmptyState(
               icon: Icons.folder_open_rounded,
               title: 'Nothing downloaded yet',
-              message: 'Paste a link on the Download tab and pick a quality — your files appear here.',
+              message: 'Paste a link on the Download tab and pick a quality. Finished files appear here — tap one to play it.',
             );
           }
           return ListView.builder(
@@ -76,6 +77,17 @@ class _TaskTile extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 11),
           child: Surface(
+            onTap: done && task.savedPath != null
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PlayerScreen(
+                          path: task.savedPath!,
+                          title: task.media.title,
+                          isAudio: task.format.isAudio,
+                        ),
+                      ),
+                    )
+                : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -128,7 +140,12 @@ class _TaskTile extends StatelessWidget {
                         tooltip: 'Cancel',
                         onPressed: task.cancel,
                       )
-                    else if (done)
+                    else if (done) ...[
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(gradient: Brand.gradientBr, shape: BoxShape.circle),
+                        child: const Icon(Icons.play_arrow_rounded, size: 19, color: Colors.white),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.ios_share_rounded, size: 19),
                         tooltip: 'Share file',
@@ -138,6 +155,7 @@ class _TaskTile extends StatelessWidget {
                                   ShareParams(files: [XFile(task.savedPath!)], text: task.media.title),
                                 ),
                       ),
+                    ],
                   ],
                 ),
                 if (running) ...[

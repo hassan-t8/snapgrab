@@ -48,6 +48,8 @@ dependencies:
   flutter_svg: ^2.3.0
   image: ^4.8.0
   crypto: ^3.0.7
+  flutter_local_notifications: ^22.2.0
+  video_player: ^2.11.1
 
 dev_dependencies:
   flutter_test:

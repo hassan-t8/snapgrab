@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/notifications.dart';
 import 'core/theme.dart';
+import 'screens/player_screen.dart';
+import 'widgets/download_bar.dart';
 import 'screens/blog_screen.dart';
 import 'screens/downloads_screen.dart';
 import 'screens/home_screen.dart';
@@ -35,9 +38,26 @@ Future<void> saveThemeMode(ThemeMode mode) async {
   } catch (_) {}
 }
 
+final navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadThemeMode();
+  await Notifications.init();
+
+  // tapping a "download complete" notification opens the file in the player
+  Notifications.onOpenFile = (path) {
+    final name = path.split('/').last;
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => PlayerScreen(
+          path: path,
+          title: name,
+          isAudio: RegExp(r'\.(mp3|m4a|aac|opus|wav)\$', caseSensitive: false).hasMatch(name),
+        ),
+      ),
+    );
+  };
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   runApp(const SnapGrabApp());
 }
@@ -70,6 +90,20 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = 0;
+  bool _askedForNotifications = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ask once, and only after the first frame so it never blocks startup
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_askedForNotifications) return;
+      _askedForNotifications = true;
+      await Notifications.requestPermission();
+    });
+  }
+
+  void _openFiles() => setState(() => _index = 2);
 
   static const _tabs = [
     (icon: Icons.download_rounded, outline: Icons.download_outlined, label: 'Download'),
@@ -92,22 +126,28 @@ class _RootShellState extends State<RootShell> {
           MoreScreen(),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: context.c.line)),
-        ),
-        child: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: [
-            for (final t in _tabs)
-              NavigationDestination(
-                icon: Icon(t.outline),
-                selectedIcon: Icon(t.icon),
-                label: t.label,
-              ),
-          ],
-        ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingDownloadBar(onOpenFiles: _openFiles),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: context.c.line)),
+            ),
+            child: NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              destinations: [
+                for (final t in _tabs)
+                  NavigationDestination(
+                    icon: Icon(t.outline),
+                    selectedIcon: Icon(t.icon),
+                    label: t.label,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

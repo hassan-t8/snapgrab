@@ -6,9 +6,20 @@ import '../core/models.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 
-class ResultSheet extends StatelessWidget {
+class ResultSheet extends StatefulWidget {
   const ResultSheet({super.key, required this.media});
   final ResolvedMedia media;
+
+  @override
+  State<ResultSheet> createState() => _ResultSheetState();
+}
+
+class _ResultSheetState extends State<ResultSheet> {
+  /// Formats the user has already tapped, so the row can show a spinner
+  /// instead of looking like nothing happened.
+  final _starting = <String>{};
+
+  ResolvedMedia get media => widget.media;
 
   @override
   Widget build(BuildContext context) {
@@ -176,16 +187,22 @@ class ResultSheet extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 9),
       child: Surface(
         padding: const EdgeInsets.all(11),
-        onTap: () {
-          DownloadService.enqueue(media, f);
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context)
-            ..clearSnackBars()
-            ..showSnackBar(SnackBar(
-              content: Text('Downloading ${f.quality} ${f.ext.toUpperCase()} — see the Files tab'),
-              duration: const Duration(seconds: 3),
-            ));
-        },
+        onTap: _starting.contains(f.id)
+            ? null
+            : () async {
+                setState(() => _starting.add(f.id));
+                DownloadService.enqueue(media, f);
+                // hold the spinner briefly so the tap visibly registers
+                await Future<void>.delayed(const Duration(milliseconds: 550));
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(SnackBar(
+                    content: Text('Downloading ${f.quality} ${f.ext.toUpperCase()} — watch the bar below'),
+                    duration: const Duration(seconds: 3),
+                  ));
+              },
         child: Row(
           children: [
             Container(
@@ -219,15 +236,24 @@ class ResultSheet extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(gradient: Brand.gradient, borderRadius: BorderRadius.circular(12)),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.download_rounded, size: 15, color: Colors.white),
-                  SizedBox(width: 5),
-                  Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                  if (_starting.contains(f.id))
+                    const SizedBox(
+                      width: 15,
+                      height: 15,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  else
+                    const Icon(Icons.download_rounded, size: 15, color: Colors.white),
+                  const SizedBox(width: 5),
+                  Text(_starting.contains(f.id) ? 'Starting' : 'Save',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
                 ],
               ),
             ),

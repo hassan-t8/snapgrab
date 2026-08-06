@@ -34,9 +34,29 @@ flutter build ipa --release   --dart-define=SNAPGRAB_API=https://your-domain.com
 - **Clipboard detection** — the app checks the clipboard on launch and every time it returns to the foreground, so a link copied in YouTube or Instagram is picked up before you touch anything.
 - **Live platform badge** as you type, from a local registry of all 14 platforms, so detection is instant and works offline.
 - Results open in a draggable sheet grouped into **Video / Audio / Images**, with quality, container and file size on every row.
+- Tapping a quality shows a **spinner on that row** immediately, so the tap visibly registers before the sheet closes.
 - Downloads **stream to disk with live progress**, can be cancelled mid-flight, and land in the gallery via the platform's media store.
 
+### Knowing what is happening
+
+Three places tell the user a download is in flight, because one is never enough:
+
+| Where | What it shows |
+| --- | --- |
+| **Notification shade** | Live progress bar with percent and MB, on a low-importance channel so it updates silently. Becomes "Download complete — tap to play" when it lands, or the failure reason if it does not. |
+| **Floating bar** | Sits above the nav on every tab: progress ring, title, `47% · 12 MB of 26 MB`, and an ✕ to cancel. Turns green for six seconds when a download finishes. Tap it to jump to Files. |
+| **Files tab** | Per-download progress bar, cancel, share, and where the file landed. |
+
+Notification permission is requested after the first frame, never on the splash, and everything degrades quietly if the user declines.
+
+### Built-in player
+
+Finished files play inside the app — tap the row in Files, the floating bar, or the notification. Play/pause, ±10 s skip, a scrub bar and a time/size readout. Audio files show artwork instead of a black frame. If a codec will not decode, the screen offers "Open in another app" rather than failing silently.
+
 ### Tools tab — 13 tools, all on-device
+
+A **search box** filters by name, tagline, category or slug, with a clear button and a "no match" state that suggests terms.
+
 | Group | Tools |
 | --- | --- |
 | Image | Converter (JPG/PNG), Compressor with quality slider, Resizer with aspect lock |
@@ -64,9 +84,12 @@ lib/
 │   ├── platforms.dart    # offline link detection + URL normalisation
 │   ├── downloads.dart    # streaming download queue, permissions, gallery save
 │   ├── image_tools.dart  # isolate-backed convert / compress / resize
-│   └── text_tools.dart   # pure functions behind the text + generator tools
-├── screens/              # home · result sheet · tools · files · blog · more
-├── widgets/common.dart   # Surface, GradientButton, Aurora, staggered animations
+│   ├── text_tools.dart   # pure functions behind the text + generator tools
+│   └── notifications.dart # progress, completion and failure notifications
+├── screens/              # home · result sheet · tools · files · player · blog · more
+├── widgets/
+│   ├── common.dart       # Surface, GradientButton, Aurora, staggered animations
+│   └── download_bar.dart # the floating progress strip
 └── main.dart             # theme mode, navigation shell
 ```
 
@@ -88,6 +111,7 @@ Motion is deliberate rather than decorative — staggered list entrances, a 200m
 | --- | --- | --- |
 | Android ≤12 | `WRITE_EXTERNAL_STORAGE` | save downloads to shared storage |
 | Android 13+ | `READ_MEDIA_IMAGES` / `VIDEO` / `AUDIO` | pick images for the tools, write to the gallery |
+| Android 13+ | `POST_NOTIFICATIONS` | download progress and completion alerts |
 | Android | `INTERNET`, `ACCESS_NETWORK_STATE` | talk to the API |
 | iOS | `NSPhotoLibraryAddUsageDescription` | save downloads to Photos |
 | iOS | `NSPhotoLibraryUsageDescription` | pick images for the tools |
@@ -118,7 +142,13 @@ flutter test      # 10 unit tests
 
 The tests cover link detection across all platforms, URL normalisation and tracking-parameter stripping, the nine case conversions, Base64 round-tripping with emoji, the known SHA-256 vector for `"abc"`, UUID v4 layout and password generation.
 
-Verified on an Android 17 emulator against a live server: all five tabs render, the blog loads real posts over the network, a YouTube link resolves and a **5.5 MB MP4 downloads to completion** with correct progress reporting.
+Verified on a **Galaxy S23 FE** against a live server with a real RapidAPI key: clipboard detection picked up a copied YouTube link on its own, the platform badge lit up, 25 formats came back, and a **41 MB MP4 downloaded to completion and saved to the gallery**. Also verified on an Android 17 emulator across all five tabs.
+
+---
+
+## Build notes
+
+`flutter_local_notifications` needs **core library desugaring**, which the Flutter scaffold does not enable. It is switched on in `android/app/build.gradle.kts` with `desugar_jdk_libs`; without it the release build fails at `checkReleaseAarMetadata`.
 
 ---
 
@@ -127,3 +157,4 @@ Verified on an Android 17 emulator against a live server: all five tabs render, 
 - **WEBP encoding** is not available on-device, so the image converter offers JPG and PNG output. WEBP files can still be read in.
 - **PDF tools are web-only** for now; `pdf-lib` has no Dart equivalent in this project yet.
 - iOS builds have not been run on hardware here — no macOS signing identity was configured. The Android path is verified end to end.
+- The notification, floating bar, player, save-button spinner and tool search all compile clean and pass the analyzer, but have **not yet been watched running on a physical device** — the test phone was in use. The download pipeline underneath them is verified (a 41 MB YouTube video downloaded and saved to the gallery on a Galaxy S23 FE).

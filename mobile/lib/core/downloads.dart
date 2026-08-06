@@ -8,12 +8,17 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'api.dart';
 import 'models.dart';
+import 'notifications.dart';
 
 enum DownloadState { queued, running, done, failed, cancelled }
 
 class DownloadTask extends ChangeNotifier {
-  DownloadTask({required this.media, required this.format});
+  DownloadTask({required this.media, required this.format}) : id = _nextId++;
 
+  static int _nextId = 1;
+
+  /// Also the notification id, so each download owns one shade entry.
+  final int id;
   final ResolvedMedia media;
   final MediaFormat format;
 
@@ -23,6 +28,7 @@ class DownloadTask extends ChangeNotifier {
   int total = 0;
   String? error;
   String? savedPath;
+  DateTime? finishedAt;
   bool inGallery = false;
   bool _cancelled = false;
 
@@ -31,12 +37,22 @@ class DownloadTask extends ChangeNotifier {
   void cancel() {
     _cancelled = true;
     state = DownloadState.cancelled;
+    Notifications.cancel(id);
     notifyListeners();
   }
 
   Future<void> start() async {
     state = DownloadState.running;
     notifyListeners();
+
+    Notifications.showProgress(
+      id: id,
+      title: media.title,
+      percent: 0,
+      subtitle: 'Starting ${format.quality} ${format.ext.toUpperCase()}…',
+    );
+
+    var lastNotifiedPercent = -1;
 
     try {
       final dir = await DownloadService.targetDirectory();
@@ -52,6 +68,18 @@ class DownloadTask extends ChangeNotifier {
           received = r;
           total = t;
           notifyListeners();
+
+          // the shade only needs whole percents, not every chunk
+          final percent = (p * 100).round();
+          if (percent != lastNotifiedPercent && percent % 2 == 0) {
+            lastNotifiedPercent = percent;
+            Notifications.showProgress(
+              id: id,
+              title: media.title,
+              percent: percent,
+              subtitle: '$percent%  ·  ${formatBytes(r)} of ${formatBytes(t)}',
+            );
+          }
         },
       );
 
@@ -64,12 +92,22 @@ class DownloadTask extends ChangeNotifier {
 
       state = DownloadState.done;
       progress = 1;
+      finishedAt = DateTime.now();
+
+      Notifications.showDone(
+        id: id,
+        title: 'Download complete',
+        subtitle: '${media.title} — tap to play',
+        filePath: savedPath,
+      );
     } catch (e) {
       if (_cancelled) {
         state = DownloadState.cancelled;
+        Notifications.cancel(id);
       } else {
         state = DownloadState.failed;
         error = e is ApiException ? e.message : 'The download failed. Please try again.';
+        Notifications.showFailed(id: id, title: 'Download failed', reason: error!);
       }
     }
     notifyListeners();
@@ -85,9 +123,17 @@ class DownloadService {
   static DownloadTask enqueue(ResolvedMedia media, MediaFormat format) {
     final task = DownloadTask(media: media, format: format);
     tasks.value = [task, ...tasks.value];
+    // rebuild the floating bar on every progress tick
+    task.addListener(() => tasks.value = List<DownloadTask>.of(tasks.value));
     task.start();
     return task;
   }
+
+  /// True while any download is still running — drives the floating bar.
+  static bool get hasActive => tasks.value.any((t) => t.state == DownloadState.running);
+
+  static List<DownloadTask> get active =>
+      tasks.value.where((t) => t.state == DownloadState.running).toList();
 
   static void clearFinished() {
     tasks.value = tasks.value.where((t) => t.state == DownloadState.running).toList();

@@ -148,19 +148,76 @@ final kTools = <ToolDef>[
   ),
 ];
 
-class ToolsScreen extends StatelessWidget {
+class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
 
   @override
+  State<ToolsScreen> createState() => _ToolsScreenState();
+}
+
+class _ToolsScreenState extends State<ToolsScreen> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<ToolDef> get _matches {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return kTools;
+    return kTools
+        .where((t) =>
+            t.name.toLowerCase().contains(q) ||
+            t.tagline.toLowerCase().contains(q) ||
+            t.category.toLowerCase().contains(q) ||
+            t.slug.contains(q))
+        .toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final categories = <String>{for (final t in kTools) t.category}.toList();
+    final matches = _matches;
+    final categories = <String>{for (final t in matches) t.category}.toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Tools')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
         children: [
-          Surface(
+          TextField(
+            controller: _search,
+            onChanged: (v) => setState(() => _query = v),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search ${kTools.length} tools…',
+              prefixIcon: const Icon(Icons.search_rounded, size: 21),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 19),
+                      onPressed: () {
+                        _search.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (matches.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 40),
+              child: EmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'No tool matches "$_query"',
+                message: 'Try "image", "json", "password" or "hash".',
+              ),
+            ),
+          if (_query.isEmpty)
+            Surface(
             color: Brand.accent500.withValues(alpha: 0.08),
             borderColor: Brand.accent500.withValues(alpha: 0.28),
             child: Row(
@@ -176,15 +233,15 @@ class ToolsScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 22),
+          if (_query.isEmpty) const SizedBox(height: 22),
           for (final category in categories) ...[
             SectionHeader(
               title: '$category tools',
-              subtitle: '${kTools.where((t) => t.category == category).length} available',
+              subtitle: '${matches.where((t) => t.category == category).length} available',
             ),
             const SizedBox(height: 13),
             ...staggered([
-              for (final tool in kTools.where((t) => t.category == category))
+              for (final tool in matches.where((t) => t.category == category))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Surface(
