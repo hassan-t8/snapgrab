@@ -35,9 +35,10 @@ class DownloadTask extends ChangeNotifier {
   String get fileName => DownloadService.safeName(media.title, format);
 
   void cancel() {
+    if (state != DownloadState.running && state != DownloadState.queued) return;
     _cancelled = true;
     state = DownloadState.cancelled;
-    Notifications.cancel(id);
+    Notifications.showCancelled(id: id, title: media.title);
     notifyListeners();
   }
 
@@ -127,6 +128,24 @@ class DownloadService {
     task.addListener(() => tasks.value = List<DownloadTask>.of(tasks.value));
     task.start();
     return task;
+  }
+
+  /// Stops a download from its notification's Cancel button.
+  static void cancelById(int id) {
+    for (final t in tasks.value) {
+      if (t.id == id) {
+        t.cancel();
+        return;
+      }
+    }
+  }
+
+  /// Finds a finished task by notification id, so Play can open the right file.
+  static DownloadTask? byId(int id) {
+    for (final t in tasks.value) {
+      if (t.id == id) return t;
+    }
+    return null;
   }
 
   /// True while any download is still running — drives the floating bar.

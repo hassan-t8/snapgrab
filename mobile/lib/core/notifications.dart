@@ -14,6 +14,13 @@ class Notifications {
   /// Set by the app so a notification tap can open the player.
   static void Function(String filePath)? onOpenFile;
 
+  /// Set by the app so the notification's Cancel button can stop a download.
+  static void Function(int taskId)? onCancelTask;
+
+  /// Action ids the notification buttons send back.
+  static const actionPlay = 'play';
+  static const actionCancel = 'cancel';
+
   static const _progressChannel = AndroidNotificationChannel(
     'downloads_progress',
     'Download progress',
@@ -29,6 +36,26 @@ class Notifications {
     importance: Importance.defaultImportance,
   );
 
+  /// One place for both a plain tap and an action-button tap.
+  ///
+  /// Payload carries the file path for finished downloads, or `task:<id>`
+  /// while one is still running, so Cancel knows what to stop.
+  static void _handleResponse(NotificationResponse response) {
+    final payload = response.payload ?? '';
+    final action = response.actionId;
+
+    if (action == actionCancel) {
+      final id = int.tryParse(payload.replaceFirst('task:', ''));
+      if (id != null) onCancelTask?.call(id);
+      return;
+    }
+
+    // a body tap and the Play button both mean "open it"
+    if (payload.isNotEmpty && !payload.startsWith('task:')) {
+      onOpenFile?.call(payload);
+    }
+  }
+
   static Future<void> init() async {
     if (_ready) return;
     try {
@@ -43,10 +70,7 @@ class Notifications {
 
       await _plugin.initialize(
         settings: settings,
-        onDidReceiveNotificationResponse: (response) {
-          final path = response.payload;
-          if (path != null && path.isNotEmpty) onOpenFile?.call(path);
-        },
+        onDidReceiveNotificationResponse: _handleResponse,
       );
 
       final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -100,9 +124,14 @@ class Notifications {
             progress: percent.clamp(0, 100),
             indeterminate: percent < 0,
             category: AndroidNotificationCategory.progress,
+            actions: const [
+              AndroidNotificationAction(actionCancel, 'Cancel', cancelNotification: false),
+            ],
           ),
           iOS: const DarwinNotificationDetails(presentAlert: false, presentSound: false),
         ),
+        // lets the Cancel button say which download it belongs to
+        payload: 'task:$id',
       );
     } catch (_) {}
   }
@@ -127,10 +156,38 @@ class Notifications {
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
             autoCancel: true,
+            actions: [
+              // the body is tappable too; this is the obvious affordance
+              AndroidNotificationAction(actionPlay, 'Play', showsUserInterface: true),
+            ],
           ),
           iOS: DarwinNotificationDetails(),
         ),
         payload: filePath,
+      );
+    } catch (_) {}
+  }
+
+  /// Shown when the user stops a download, so the shade does not just go blank.
+  static Future<void> showCancelled({required int id, required String title}) async {
+    if (!_ready) return;
+    try {
+      await _plugin.cancel(id: id);
+      await _plugin.show(
+        id: id,
+        title: 'Download cancelled',
+        body: title,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'downloads_done',
+            'Finished downloads',
+            importance: Importance.low,
+            priority: Priority.low,
+            autoCancel: true,
+            timeoutAfter: 8000, // it is only an acknowledgement; let it clear itself
+          ),
+          iOS: DarwinNotificationDetails(presentSound: false),
+        ),
       );
     } catch (_) {}
   }

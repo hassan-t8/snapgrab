@@ -43,9 +43,20 @@ Three places tell the user a download is in flight, because one is never enough:
 
 | Where | What it shows |
 | --- | --- |
-| **Notification shade** | Live progress bar with percent and MB, on a low-importance channel so it updates silently. Becomes "Download complete — tap to play" when it lands, or the failure reason if it does not. |
+| **Notification shade** | Live progress bar with percent and MB, on a low-importance channel so it updates silently. |
 | **Floating bar** | Sits above the nav on every tab: progress ring, title, `47% · 12 MB of 26 MB`, and an ✕ to cancel. Turns green for six seconds when a download finishes. Tap it to jump to Files. |
 | **Files tab** | Per-download progress bar, cancel, share, and where the file landed. |
+
+The notification carries buttons, so the shade is a real control surface rather than a read-only readout:
+
+| State | Notification | Buttons |
+| --- | --- | --- |
+| Downloading | `47%  ·  12 MB of 26 MB` with a progress bar | **Cancel** — stops that exact download |
+| Finished | "Download complete — tap to play" | **Play** — opens the in-app player |
+| Cancelled | "Download cancelled" | none; clears itself after 8 s |
+| Failed | The reason, in plain English | none |
+
+Tapping the body of a finished notification does the same as **Play**. The payload carries `task:<id>` while a download runs so Cancel knows which one to stop, and the file path once it finishes so Play knows what to open — and the player gets the real video title rather than the on-disk filename.
 
 Notification permission is requested after the first frame, never on the splash, and everything degrades quietly if the user declines.
 
@@ -157,4 +168,4 @@ Verified on a **Galaxy S23 FE** against a live server with a real RapidAPI key: 
 - **WEBP encoding** is not available on-device, so the image converter offers JPG and PNG output. WEBP files can still be read in.
 - **PDF tools are web-only** for now; `pdf-lib` has no Dart equivalent in this project yet.
 - iOS builds have not been run on hardware here — no macOS signing identity was configured. The Android path is verified end to end.
-- The notification, floating bar, player, save-button spinner and tool search all compile clean and pass the analyzer, but have **not yet been watched running on a physical device** — the test phone was in use. The download pipeline underneath them is verified (a 41 MB YouTube video downloaded and saved to the gallery on a Galaxy S23 FE).
+- The notifications (including the Cancel and Play buttons), floating bar, player, save-button spinner and tool search all compile clean and pass the analyzer, and the release APK installs on a Galaxy S23 FE — but they have **not yet been watched running on the device**, because the test phone was in use every time verification was attempted. The download pipeline beneath them *is* verified: a 41 MB YouTube video downloaded to completion and saved to the gallery on that handset.

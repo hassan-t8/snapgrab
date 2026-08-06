@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/downloads.dart';
 import 'core/notifications.dart';
 import 'core/theme.dart';
 import 'screens/player_screen.dart';
@@ -45,15 +46,23 @@ Future<void> main() async {
   await loadThemeMode();
   await Notifications.init();
 
-  // tapping a "download complete" notification opens the file in the player
+  // the Cancel button on a progress notification stops that download
+  Notifications.onCancelTask = DownloadService.cancelById;
+
+  // tapping the body, or the Play button, opens the file in the player
   Notifications.onOpenFile = (path) {
     final name = path.split('/').last;
+    // prefer the real title over the on-disk filename when we still have the task
+    final matches = DownloadService.tasks.value.where((t) => t.savedPath == path);
+    final task = matches.isEmpty ? null : matches.first;
+
     navigatorKey.currentState?.push(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
           path: path,
-          title: name,
-          isAudio: RegExp(r'\.(mp3|m4a|aac|opus|wav)\$', caseSensitive: false).hasMatch(name),
+          title: task?.media.title ?? name,
+          isAudio: task?.format.isAudio ??
+              RegExp(r'\.(mp3|m4a|aac|opus|wav)$', caseSensitive: false).hasMatch(name),
         ),
       ),
     );
