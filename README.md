@@ -24,6 +24,7 @@ Ships with a complete admin panel: visitor tracking, download logs, API-quota mo
 - [SEO](#seo)
 - [Admin panel](#admin-panel)
 - [API reference](#api-reference)
+- [Going public](#going-public)
 - [Deploying](#deploying)
 - [Scripts](#scripts)
 - [Roadmap](#roadmap)
@@ -324,12 +325,91 @@ Auth is a JWT in an httpOnly cookie, 8-hour expiry, bcrypt-hashed passwords, bru
 
 ---
 
+## Going public
+
+The site is ready for real users. Work through this once, in order.
+
+### 1. Rotate every secret
+
+The values in your local `.env` were development throwaways. Replace all of them before the site is reachable from the internet:
+
+```bash
+openssl rand -base64 32        # use the output as AUTH_SECRET
+```
+
+| Variable | Why it must change |
+| --- | --- |
+| `AUTH_SECRET` | Signs admin session tokens. Anyone holding it can forge a session and walk straight into the dashboard. |
+| `ADMIN_PASSWORD` | The seeded default is printed in this README, so it is public knowledge. |
+| `RAPIDAPI_KEY` | Tied to your RapidAPI billing. A leaked key gets scraped and drained. |
+
+Then re-seed so the new credentials take effect:
+
+```bash
+npm run seed
+```
+
+### 2. Keep `.env` out of git
+
+`.env` is git-ignored deliberately, and it must stay that way once the repo is public. Automated scanners find committed API keys within minutes of a push, and this file holds your admin password and your paid API key side by side.
+
+Put the values in your host's dashboard instead — on Vercel that is **Project → Settings → Environment Variables**. Every host has the same feature, and [`.env.example`](.env.example) documents each key.
+
+If a secret is ever committed, rotating it is the only real fix; deleting the file does not remove it from git history.
+
+### 3. Move to a real database
+
+SQLite writes to a local file, which serverless platforms discard between requests:
+
+```prisma
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+```bash
+npx prisma db push && npm run seed
+```
+
+Neon, Supabase and Vercel Postgres all have free tiers that fit this app.
+
+### 4. Raise the API quota
+
+The free `social-download-all-in-one` plan allows **100 requests per month**. Public traffic exhausts that on day one. **Admin → API usage** shows the live remaining count — upgrade on RapidAPI before you share the link.
+
+The one-hour resolve cache means repeat links cost nothing, so the practical figure is 100 *unique* links per month.
+
+### 5. Point the domain and the app at each other
+
+```env
+NEXT_PUBLIC_SITE_URL="https://your-domain.com"
+```
+
+Canonicals, the sitemap and OG images all derive from it. Then rebuild the mobile app against the same host:
+
+```bash
+cd mobile
+flutter build apk --release --dart-define=SNAPGRAB_API=https://your-domain.com
+```
+
+### 6. Pre-launch checklist
+
+- [ ] `AUTH_SECRET`, `ADMIN_PASSWORD` and `RAPIDAPI_KEY` rotated
+- [ ] `git ls-files .env` prints nothing
+- [ ] Postgres connected and seeded
+- [ ] `NEXT_PUBLIC_SITE_URL` set to the real domain
+- [ ] RapidAPI plan upgraded beyond 100 calls
+- [ ] `/admin` reachable and the new login works
+- [ ] `sitemap.xml` submitted in Google Search Console
+- [ ] AdSense client id set, if you are running ads
+
+---
+
 ## Deploying
 
-1. **Change the secrets.** `AUTH_SECRET` (`openssl rand -base64 32`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`. Re-run `npm run seed`.
-2. **Set `NEXT_PUBLIC_SITE_URL`** to your real domain — canonicals, the sitemap and OG images all derive from it.
-3. **Move off SQLite.** In `prisma/schema.prisma` set `provider = "postgresql"`, point `DATABASE_URL` at your database, then `npx prisma db push && npm run seed`. Serverless platforms have no persistent writable disk.
-4. **Deploy.** On Vercel the `x-vercel-ip-country` / `-city` headers populate visitor geo automatically; behind Cloudflare, `cf-ipcountry` is used instead. No extra configuration needed.
+On Vercel the `x-vercel-ip-country` / `-city` headers populate visitor geo automatically; behind Cloudflare, `cf-ipcountry` is used instead. No extra configuration is needed either way.
 
 ```bash
 npm run build && npm start
