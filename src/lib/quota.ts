@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma } from "./prisma";
 import { QUOTA_PROVIDERS, type ProviderId, type QuotaPeriod } from "./quota-providers";
+import { isGroupConfigured } from "./integrations";
 
 /**
  * Usage allowance for every external API, so a free or paid plan running out switches the
@@ -103,7 +104,7 @@ function defaultRow(id: ProviderId): Row {
   };
 }
 
-function toState(id: ProviderId, raw: Row, now = new Date()): QuotaState {
+function toState(id: ProviderId, raw: Row, now = new Date(), configured = true): QuotaState {
   const p = QUOTA_PROVIDERS[id];
   const row = { ...raw, ...(rollover(raw, now) ?? {}) };
   const period = asPeriod(row.period, p.period);
@@ -112,7 +113,6 @@ function toState(id: ProviderId, raw: Row, now = new Date()): QuotaState {
   const overLimit = limit != null && row.used >= limit;
   const upstreamOut = !!row.exhaustedUntil && row.exhaustedUntil > now;
   const exhausted = overLimit || upstreamOut;
-  const keyEnv = "keyEnv" in p ? p.keyEnv : undefined;
   return {
     id,
     label: p.label,
@@ -130,7 +130,7 @@ function toState(id: ProviderId, raw: Row, now = new Date()): QuotaState {
     available: !exhausted || row.forceEnabled,
     lastError: row.lastError,
     lastCallAt: row.lastCallAt,
-    configured: !keyEnv || !!process.env[keyEnv],
+    configured,
   };
 }
 
@@ -141,8 +141,14 @@ export const getQuotaStates = cache(async (): Promise<Record<ProviderId, QuotaSt
   const rows = await prisma.apiQuota.findMany().catch(() => [] as Row[]);
   const byId = new Map(rows.map((r) => [r.provider, r]));
   const now = new Date();
+  const configured = await Promise.all(
+    PROVIDER_IDS.map((id) => {
+      const p = QUOTA_PROVIDERS[id];
+      return "integration" in p ? isGroupConfigured(p.integration) : true;
+    }),
+  );
   return Object.fromEntries(
-    PROVIDER_IDS.map((id) => [id, toState(id, byId.get(id) ?? defaultRow(id), now)]),
+    PROVIDER_IDS.map((id, i) => [id, toState(id, byId.get(id) ?? defaultRow(id), now, configured[i])]),
   ) as Record<ProviderId, QuotaState>;
 });
 

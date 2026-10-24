@@ -60,7 +60,7 @@ function Card({ q }: { q: QuotaCard }) {
   }
 
   const status = !q.configured ? (
-    <Badge tone="warn">Key missing{q.keyEnv ? ` · ${q.keyEnv}` : ""}</Badge>
+    <Badge tone="warn">Key missing{q.keyEnv ? ` · add it in ${q.keyEnv}` : ""}</Badge>
   ) : q.exhausted && q.forceEnabled ? (
     <Badge tone="warn">Limit reached · force-enabled</Badge>
   ) : q.exhausted ? (

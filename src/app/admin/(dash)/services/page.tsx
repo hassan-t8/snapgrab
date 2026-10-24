@@ -66,7 +66,7 @@ export default async function ServicesPage() {
       purpose: meta.purpose,
       note: meta.note,
       dashboardUrl: meta.dashboardUrl,
-      keyEnv: "keyEnv" in meta ? meta.keyEnv : null,
+      keyEnv: "integration" in meta ? "Integrations → RapidAPI" : null,
       configured: q.configured,
       limit: q.limit,
       used: q.used,

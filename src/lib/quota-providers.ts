@@ -14,8 +14,8 @@ export type QuotaProvider = {
   tier: Exclude<CostTier, "free">;
   /** what the provider is used for, shown in the admin panel */
   purpose: string;
-  /** env var holding the API key, if the service needs one */
-  keyEnv?: string;
+  /** Admin → Integrations group holding the key, if the service needs one */
+  integration?: "rapidapi";
   /** default allowance per period; null = counted but never enforced until an admin sets one */
   defaultLimit: number | null;
   period: QuotaPeriod;
@@ -38,7 +38,7 @@ export const QUOTA_PROVIDERS = {
     label: "RapidAPI social media downloader",
     tier: "paid",
     purpose: "Video downloader, audio downloader, video to MP3",
-    keyEnv: "RAPIDAPI_KEY",
+    integration: "rapidapi",
     defaultLimit: null,
     period: "month",
     dashboardUrl: "https://rapidapi.com/developer/billing",

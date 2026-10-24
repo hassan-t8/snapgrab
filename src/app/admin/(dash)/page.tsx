@@ -27,6 +27,7 @@ import { DonutChart, PlatformChart, TrafficChart } from "@/components/admin/Char
 import { isDemoMode } from "@/lib/provider";
 import { mailerConfigured } from "@/lib/mailer";
 import { getQuotaStates } from "@/lib/quota";
+import { isGroupConfigured } from "@/lib/integrations";
 import { daysAgo } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -44,15 +45,12 @@ export default async function AdminDashboard() {
     prisma.event.count({ where: { createdAt: { gte: daysAgo(7) } } }).catch(() => 0),
     prisma.toolUsage.count({ where: { createdAt: { gte: daysAgo(7) } } }).catch(() => 0),
   ]);
+  const [demo, mailer, adsense] = await Promise.all([isDemoMode(), mailerConfigured(), isGroupConfigured("adsense")]);
 
   const health = [
-    { label: "RapidAPI key", ok: !isDemoMode(), note: isDemoMode() ? "Demo mode — add RAPIDAPI_KEY" : "Configured" },
-    { label: "SMTP mailer", ok: mailerConfigured(), note: mailerConfigured() ? "Configured" : "Contact form saves only" },
-    {
-      label: "AdSense",
-      ok: Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT),
-      note: process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? "Live" : "Placeholder slots",
-    },
+    { label: "RapidAPI key", ok: !demo, note: demo ? "Demo mode — add it in Integrations" : "Configured" },
+    { label: "SMTP mailer", ok: mailer, note: mailer ? "Configured" : "Contact form saves only — set up in Integrations" },
+    { label: "AdSense", ok: adsense, note: adsense ? "Live" : "Placeholder slots — add IDs in Integrations" },
     ...Object.values(quotas).map((q) => ({
       label: q.label,
       ok: q.available && !q.exhausted,

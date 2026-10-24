@@ -12,6 +12,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  PlugZap,
   MousePointerClick,
   Mail,
   Menu,
@@ -35,6 +36,7 @@ const NAV = [
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/subscribers", label: "Subscribers", icon: BarChart3 },
   { href: "/admin/services", label: "Services & API limits", icon: ToggleLeft },
+  { href: "/admin/integrations", label: "Integrations & keys", icon: PlugZap },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

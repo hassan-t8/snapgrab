@@ -2,8 +2,11 @@ import { prisma } from "./prisma";
 import { detectPlatform, normalizeUrl } from "./platforms";
 import type { MediaFormat, ResolvedMedia } from "./types";
 import { assertQuota, formatRenewal, recordQuotaCall, QuotaExceededError } from "./quota";
+import { getIntegrations, isGroupConfigured } from "./integrations";
 
-const CACHE_TTL_MIN = Number(process.env.RESOLVE_CACHE_TTL_MIN ?? 60);
+const RAPID_KEYS = ["RAPIDAPI_KEY", "RAPIDAPI_HOST", "RAPIDAPI_ENDPOINT", "RAPIDAPI_YT_HOST", "RAPIDAPI_YT_ENDPOINT", "RESOLVE_CACHE_TTL_MIN"] as const;
+/** RapidAPI settings from Admin → Integrations, falling back to .env. */
+export const rapidConfig = () => getIntegrations([...RAPID_KEYS]);
 
 export class ProviderError extends Error {
   code: string;
@@ -174,8 +177,8 @@ function demoPayload(sourceUrl: string, platformId: string, platformName: string
   };
 }
 
-export function isDemoMode() {
-  return !process.env.RAPIDAPI_KEY;
+export async function isDemoMode() {
+  return !(await isGroupConfigured("rapidapi"));
 }
 
 /* ------------------------------------------------------------------ */
@@ -191,6 +194,9 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
       "UNSUPPORTED",
     );
   }
+
+  const cfg = await rapidConfig();
+  const CACHE_TTL_MIN = Number(cfg.RESOLVE_CACHE_TTL_MIN) || 60;
 
   // 1. cache
   const key = cacheKey(url);
@@ -210,16 +216,16 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
   }
 
   // 2. demo mode
-  if (isDemoMode()) {
+  if (await isDemoMode()) {
     const demo = demoPayload(url, platform.id, platform.name);
     await logApiCall({ provider: "demo", endpoint: "resolve", platform: platform.id, status: 200, ok: true, latencyMs: 0 });
     return demo;
   }
 
   // 3. upstream RapidAPI call
-  const isYt = platform.id === "youtube" && process.env.RAPIDAPI_YT_ENDPOINT;
-  const host = (isYt ? process.env.RAPIDAPI_YT_HOST : process.env.RAPIDAPI_HOST) as string;
-  const endpoint = (isYt ? process.env.RAPIDAPI_YT_ENDPOINT : process.env.RAPIDAPI_ENDPOINT) as string;
+  const isYt = platform.id === "youtube" && cfg.RAPIDAPI_YT_ENDPOINT;
+  const host = (isYt ? cfg.RAPIDAPI_YT_HOST : cfg.RAPIDAPI_HOST) as string;
+  const endpoint = (isYt ? cfg.RAPIDAPI_YT_ENDPOINT : cfg.RAPIDAPI_ENDPOINT) as string;
   if (!host || !endpoint) throw new ProviderError("Downloader provider is not configured.", "NO_PROVIDER");
 
   // plan allowance used up: fail fast instead of burning a call that will be refused
@@ -242,7 +248,7 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-rapidapi-key": process.env.RAPIDAPI_KEY as string,
+        "x-rapidapi-key": cfg.RAPIDAPI_KEY as string,
         "x-rapidapi-host": host,
       },
       body: JSON.stringify({ url }),

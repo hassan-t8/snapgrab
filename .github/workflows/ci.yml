@@ -1,0 +1,38 @@
+# CI for every push and pull request. The VPS deploy script waits for the "build"
+# check on a commit and only deploys it when this workflow passed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: file:./ci.db
+      AUTH_SECRET: ci-only-placeholder-not-a-real-secret
+      NEXT_PUBLIC_SITE_URL: https://snapgrab.185-211-6-213.sslip.io
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Database schema
+        run: npx prisma db push --skip-generate
+      - name: Lint
+        run: npx eslint . --max-warnings 0
+      - name: Typecheck
+        run: npx next typegen && npx tsc --noEmit
+      - name: Build
+        run: npm run build

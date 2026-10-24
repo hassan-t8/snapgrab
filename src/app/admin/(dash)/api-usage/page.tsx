@@ -40,15 +40,18 @@ export default async function ApiUsagePage({ searchParams }: PageProps<"/admin/a
 
   return (
     <div className="space-y-5">
-      {isDemoMode() && (
+      {(await isDemoMode()) && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
           <div>
             <p className="font-semibold text-amber-400">Demo mode is active</p>
             <p className="mt-0.5 text-sm text-muted">
               No RapidAPI key is set, so resolves return sample media and are logged with the provider{" "}
-              <code className="font-mono">demo</code>. Add <code className="font-mono">RAPIDAPI_KEY</code> to your env to
-              go live.
+              <code className="font-mono">demo</code>. Add your key in{" "}
+              <a href="/admin/integrations" className="font-semibold text-brand-400 underline">
+                Integrations
+              </a>{" "}
+              to go live.
             </p>
           </div>
         </div>

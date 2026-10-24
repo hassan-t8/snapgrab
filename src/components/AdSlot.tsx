@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useAdsConfig } from "./AdsConfig";
 
 type Props = {
   slot?: string;
@@ -10,12 +11,14 @@ type Props = {
 };
 
 /**
- * AdSense placeholder. Set NEXT_PUBLIC_ADSENSE_CLIENT and a slot id to go live;
+ * AdSense slot. Set the publisher and slot IDs in Admin → Integrations to go live;
  * without them it renders a neutral reserved block so layout never shifts
  * (and so the page passes AdSense review with real content around it).
  */
-export default function AdSlot({ slot, format = "auto", className = "", label = "Advertisement" }: Props) {
-  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+export default function AdSlot({ slot: slotProp, format = "auto", className = "", label = "Advertisement" }: Props) {
+  const ads = useAdsConfig();
+  const client = ads.client;
+  const slot = slotProp ?? ads.slot;
   const ref = useRef<HTMLModElement>(null);
   const pushed = useRef(false);
 

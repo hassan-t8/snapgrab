@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     mailed,
-    note: mailerConfigured()
+    note: (await mailerConfigured())
       ? undefined
       : "Saved to the dashboard — SMTP is not configured yet, so no email was sent.",
   });

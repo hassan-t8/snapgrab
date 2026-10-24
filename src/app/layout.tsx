@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Toaster from "@/components/Toaster";
@@ -66,9 +65,6 @@ export const metadata: Metadata = {
   publisher: NAME,
   authors: [{ name: "Nikamynumlians" }],
   formatDetection: { telephone: false },
-  verification: process.env.GOOGLE_SITE_VERIFICATION
-    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
-    : undefined,
 };
 
 export const viewport: Viewport = {
@@ -84,20 +80,10 @@ export const viewport: Viewport = {
 const THEME_SCRIPT = `(function(){try{var s=localStorage.getItem('sg-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d)}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  const adsense = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
-
   return (
     <html lang="en" className={`${jakarta.variable} dark h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-        {adsense ? (
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense}`}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        ) : null}
       </head>
       <body className="flex min-h-full flex-col">
         <RouteProgress />

@@ -28,6 +28,26 @@ FAILED=$(cat "$APP/last-failed-sha" 2>/dev/null || true)
 if [ "${1:-}" != "--force" ]; then
   [ "$REMOTE" = "$CURRENT" ] && exit 0
   [ "$REMOTE" = "$FAILED" ] && exit 0
+
+  # CI gate: only deploy a commit whose GitHub Actions "build" check passed.
+  # Pending → try again next minute. No check at all for 15 min (Actions off/down) → deploy anyway.
+  RUNS=$(curl -fsS -m 10 -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/hassan-t8/snapgrab/commits/$REMOTE/check-runs?check_name=build" 2>/dev/null || true)
+  CI=$(printf '%s' "$RUNS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const x=(JSON.parse(s).check_runs||[])[0];console.log(!x?"none":x.status!=="completed"?"pending":x.conclusion)}catch{console.log("unknown")}})')
+  WAIT="$APP/ci-wait"
+  case "$CI" in
+    success) rm -f "$WAIT" ;;
+    pending)
+      [ "$(cut -d' ' -f1 "$WAIT" 2>/dev/null)" = "$REMOTE" ] || { echo "$REMOTE $(date +%s)" > "$WAIT"; log "waiting for CI on ${REMOTE:0:7}"; }
+      exit 0 ;;
+    none|unknown)
+      [ "$(cut -d' ' -f1 "$WAIT" 2>/dev/null)" = "$REMOTE" ] || { echo "$REMOTE $(date +%s)" > "$WAIT"; log "no CI result yet for ${REMOTE:0:7}"; exit 0; }
+      (( $(date +%s) - $(cut -d' ' -f2 "$WAIT") > 900 )) || exit 0
+      log "no CI result after 15 min — deploying ${REMOTE:0:7} without it"; rm -f "$WAIT" ;;
+    *)
+      log "CI ${CI} on ${REMOTE:0:7} — not deploying, still running ${CURRENT:0:7}"
+      echo "$REMOTE" > "$APP/last-failed-sha"; rm -f "$WAIT"; exit 0 ;;
+  esac
 fi
 
 REL="$APP/releases/$(date -u +%Y%m%d%H%M%S)-${REMOTE:0:7}"

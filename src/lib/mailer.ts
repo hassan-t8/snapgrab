@@ -1,16 +1,26 @@
 import nodemailer from "nodemailer";
 import { escapeHtml } from "./escape";
+import { getIntegrations } from "./integrations";
 
-export function mailerConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+const SMTP_KEYS = ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "MAIL_TO"] as const;
+export type SmtpConfig = Record<(typeof SMTP_KEYS)[number], string | undefined>;
+
+/** SMTP settings from Admin → Integrations, falling back to .env. */
+export const smtpConfig = () => getIntegrations([...SMTP_KEYS]);
+
+export async function mailerConfigured(cfg?: SmtpConfig) {
+  const c = cfg ?? (await smtpConfig());
+  return Boolean(c.SMTP_HOST && c.SMTP_USER && c.SMTP_PASS);
 }
 
-function transporter() {
+export function transporter(c: SmtpConfig) {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: String(process.env.SMTP_SECURE ?? "false") === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    host: c.SMTP_HOST,
+    port: Number(c.SMTP_PORT ?? 587),
+    secure: String(c.SMTP_SECURE ?? "false") === "true",
+    auth: { user: c.SMTP_USER, pass: c.SMTP_PASS },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
   });
 }
 
@@ -35,12 +45,14 @@ export async function sendContactMail(msg: {
   message: string;
   ip?: string;
 }) {
-  if (!mailerConfigured()) return { sent: false, reason: "SMTP not configured" };
-  const t = transporter();
+  const c = await smtpConfig();
+  if (!(await mailerConfigured(c))) return { sent: false, reason: "SMTP not configured" };
+  const t = transporter(c);
+  const from = c.MAIL_FROM || c.SMTP_USER;
 
   await t.sendMail({
-    from: process.env.MAIL_FROM,
-    to: process.env.MAIL_TO,
+    from,
+    to: c.MAIL_TO || c.SMTP_USER,
     replyTo: `${msg.name} <${msg.email}>`,
     subject: `[Contact] ${msg.subject}`,
     html: shell(
@@ -53,7 +65,7 @@ export async function sendContactMail(msg: {
   });
 
   await t.sendMail({
-    from: process.env.MAIL_FROM,
+    from,
     to: msg.email,
     subject: "We received your message",
     html: shell(
@@ -68,3 +80,21 @@ export async function sendContactMail(msg: {
   return { sent: true };
 }
 
+
+/** Sends the admin "Test email" message; throws with the SMTP server's own error text on failure. */
+export async function sendTestMail(c: SmtpConfig, to: string) {
+  const t = transporter(c);
+  await t.verify();
+  const info = await t.sendMail({
+    from: c.MAIL_FROM || c.SMTP_USER,
+    to,
+    subject: "SnapGrab test email ✔",
+    html: shell(
+      "SMTP test",
+      `<p>This is a test from <b>Admin → Integrations</b>.</p>
+       <p>If you can read this, contact-form emails will be delivered.</p>
+       <p style="color:#64748b;font-size:12px">Server: ${escapeHtml(String(c.SMTP_HOST))}:${escapeHtml(String(c.SMTP_PORT ?? 587))}</p>`,
+    ),
+  });
+  return info.messageId as string;
+}
