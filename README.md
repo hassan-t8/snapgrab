@@ -415,6 +415,15 @@ On Vercel the `x-vercel-ip-country` / `-city` headers populate visitor geo autom
 npm run build && npm start
 ```
 
+### Live server (Contabo VPS)
+
+Live at https://snapgrab.185-211-6-213.sslip.io (test address, `noindex` until a real domain is added). Every push to `main` deploys itself:
+
+- **CD:** the server pulls. Cron runs `deploy/deploy.sh` as user `snapgrab` every minute. When `main` has a new commit, it builds that commit in a new folder under `/var/www/snapgrab/releases/`, runs `prisma db push`, switches `current` and reloads PM2. It only switches if the build and the health check pass, so a broken commit never replaces the running version.
+- **Isolation:** the VPS also runs the live WePower site. SnapGrab has its own Linux user, folder, PM2 service (`pm2-snapgrab`, port 3200 on localhost), SQLite file (`/var/www/snapgrab/shared/prod.db`), nginx file (`zz-snapgrab`) and certificate. Builds run at the lowest CPU/IO priority.
+- **Files in `deploy/`:** `ecosystem.config.cjs` (PM2) and `nginx-snapgrab.conf` (installed as `/etc/nginx/sites-available/zz-snapgrab`) are copied to the server by hand, not deployed automatically. Settings live in `/var/www/snapgrab/shared/.env`.
+- **Logs:** `/var/www/snapgrab/logs/deploy.log` and `logs/app.*.log`. Force a redeploy with `sudo -u snapgrab /var/www/snapgrab/deploy.sh --force`.
+
 ### Testing from your phone
 
 `next dev` already listens on every interface. Point a phone on the same Wi-Fi at your machine's LAN address:
