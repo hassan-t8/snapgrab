@@ -17,6 +17,18 @@ import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import { jsonLd, faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { prisma } from "@/lib/prisma";
+import { ToolIcon } from "@/lib/tool-icons";
+import { ToolSearchBox } from "@/components/ToolSearch";
+
+// the six tools featured on the home page (only those currently enabled are shown)
+const HOME_TOOLS = [
+  "currency-converter",
+  "passport-photo-maker",
+  "image-compressor",
+  "salary-tax-calculator-pakistan",
+  "merge-pdf",
+  "cv-maker",
+];
 
 export const dynamic = "force-dynamic";
 
@@ -158,10 +170,11 @@ export default async function HomePage() {
           <SectionHead
             eyebrow="More than downloads"
             title={`${TOOLS.length} free tools that run in your browser`}
-            sub="Convert and compress images, merge and split PDFs, format JSON, generate QR codes and passwords — none of it uploaded anywhere."
+            sub="Currency rates, passport photos, PDFs, salary tax, CV and invoice makers, prayer times and more — most of it never leaves your device."
           />
-          <StaggerGroup className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TOOLS.slice(0, 6).map((t) => (
+          <ToolSearchBox className="mx-auto mt-10 max-w-xl" />
+          <StaggerGroup className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {HOME_TOOLS.flatMap((slug) => TOOLS.filter((t) => t.slug === slug)).map((t) => (
               <StaggerItem key={t.slug}>
                 <Link href={`/tools/${t.slug}`} className="group block h-full">
                   <div className="relative h-full overflow-hidden rounded-2xl surface p-6 transition-all hover:-translate-y-1.5 hover:border-brand-400/40">
@@ -169,10 +182,15 @@ export default async function HomePage() {
                       className="absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-50"
                       style={{ background: t.color }}
                     />
-                    <span className="h-1.5 w-10 rounded-full" style={{ background: t.color, display: "block" }} />
+                    <span
+                      className="grid h-11 w-11 place-items-center rounded-xl text-white"
+                      style={{ background: t.color, boxShadow: `0 8px 24px -8px ${t.color}` }}
+                    >
+                      <ToolIcon tool={t} className="h-5 w-5" />
+                    </span>
                     <h3 className="mt-4 font-bold">{t.name}</h3>
                     <p className="mt-1.5 text-sm leading-relaxed text-muted">{t.tagline}</p>
-                    <span className="mt-4 flex items-center gap-1.5 text-sm font-bold text-brand-400 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="mt-4 flex items-center gap-1.5 text-sm font-bold text-brand-400 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                       Open tool <ArrowRight className="h-4 w-4" />
                     </span>
                   </div>

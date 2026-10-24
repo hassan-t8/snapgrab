@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 
+// read the service toggles on each request, so a tool switched off in admin leaves the sitemap at once
+export const dynamic = "force-dynamic";
+
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

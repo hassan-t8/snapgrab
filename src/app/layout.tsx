@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import Toaster from "@/components/Toaster";
+import RouteProgress from "@/components/RouteProgress";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -60,8 +62,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   applicationName: NAME,
   category: "technology",
-  creator: NAME,
+  creator: "Nikamynumlians",
   publisher: NAME,
+  authors: [{ name: "Nikamynumlians" }],
   formatDetection: { telephone: false },
   verification: process.env.GOOGLE_SITE_VERIFICATION
     ? { google: process.env.GOOGLE_SITE_VERIFICATION }
@@ -96,7 +99,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           />
         ) : null}
       </head>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <RouteProgress />
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

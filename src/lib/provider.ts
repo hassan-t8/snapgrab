@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { detectPlatform, normalizeUrl } from "./platforms";
 import type { MediaFormat, ResolvedMedia } from "./types";
+import { assertQuota, formatRenewal, recordQuotaCall, QuotaExceededError } from "./quota";
 
 const CACHE_TTL_MIN = Number(process.env.RESOLVE_CACHE_TTL_MIN ?? 60);
 
@@ -221,6 +222,19 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
   const endpoint = (isYt ? process.env.RAPIDAPI_YT_ENDPOINT : process.env.RAPIDAPI_ENDPOINT) as string;
   if (!host || !endpoint) throw new ProviderError("Downloader provider is not configured.", "NO_PROVIDER");
 
+  // plan allowance used up: fail fast instead of burning a call that will be refused
+  try {
+    await assertQuota("rapidapi-downloader");
+  } catch (err) {
+    if (err instanceof QuotaExceededError) {
+      throw new ProviderError(
+        `The downloader has reached its plan limit. It will be back on ${formatRenewal(err.resetsAt)}.`,
+        "QUOTA_EXCEEDED",
+      );
+    }
+    throw err;
+  }
+
   const started = Date.now();
   let status = 0;
   try {
@@ -241,8 +255,23 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
     // RapidAPI reports the remaining monthly allowance on every response
     const quotaRemaining = Number(res.headers.get("x-ratelimit-requests-remaining"));
     const quotaLimit = Number(res.headers.get("x-ratelimit-requests-limit"));
+    const headerQuota = {
+      remaining: res.headers.has("x-ratelimit-requests-remaining") && Number.isFinite(quotaRemaining) ? quotaRemaining : null,
+      limit: res.headers.has("x-ratelimit-requests-limit") && Number.isFinite(quotaLimit) ? quotaLimit : null,
+    };
 
     if (!res.ok) {
+      // 429 with nothing left = monthly plan exhausted; 429 otherwise = short burst limit
+      const planGone = (status === 429 && headerQuota.remaining === 0) || (status === 403 && /quota|exceed|subscri/i.test(text));
+      await recordQuotaCall("rapidapi-downloader", {
+        ok: false,
+        error: `HTTP ${status}`,
+        ...headerQuota,
+        exhausted: planGone,
+      });
+      if (planGone) {
+        throw new ProviderError("The downloader has used its plan limit. It will switch back on automatically when the plan renews.", "QUOTA_EXCEEDED");
+      }
       const msg =
         status === 429
           ? "We are getting a lot of requests right now. Please try again in a minute."
@@ -256,6 +285,7 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
     try {
       json = JSON.parse(text) as Record<string, unknown>;
     } catch {
+      await recordQuotaCall("rapidapi-downloader", { ok: false, error: "unreadable response", ...headerQuota });
       throw new ProviderError("Downloader service returned an unreadable response.", "BAD_JSON");
     }
     // some hosts answer 200 with {error:true, message:"..."}; surface that reason
@@ -278,10 +308,12 @@ export async function resolveMedia(inputUrl: string): Promise<ResolvedMedia> {
             : /limit|quota|exceed/i.test(detail)
               ? "The downloader has hit its plan limit. Please try again later."
               : "The downloader could not read that link. It may be private, deleted or unsupported.";
+      await recordQuotaCall("rapidapi-downloader", { ok: false, error: detail || "upstream error", ...headerQuota });
       throw new ProviderError(friendly, "UPSTREAM");
     }
 
     const media = normalizeProviderPayload(json, url, platform.id, platform.name);
+    await recordQuotaCall("rapidapi-downloader", { ok: true, ...headerQuota });
 
     await prisma.resolveCache
       .upsert({

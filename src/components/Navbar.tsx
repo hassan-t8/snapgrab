@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Download, Menu, X } from "lucide-react";
+import { ChevronDown, Download, Menu, Search, X } from "lucide-react";
 import { PLATFORMS } from "@/lib/platforms";
 import { TOOLS } from "@/lib/tools";
 import type { ServiceSummary } from "@/lib/services";
 import ThemeToggle from "./ThemeToggle";
+import { openToolSearch } from "./ToolSearch";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -130,6 +131,19 @@ export default function Navbar({ services }: { services?: ServiceSummary }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              closeMenus();
+              openToolSearch();
+            }}
+            aria-label="Search tools"
+            className="flex h-9 items-center gap-2 whitespace-nowrap rounded-xl surface px-2.5 text-sm text-muted transition-colors hover:text-[var(--fg)] xl:w-48 xl:px-3"
+          >
+            <Search className="h-[18px] w-[18px] shrink-0" />
+            <span className="hidden xl:inline">Search tools</span>
+            <kbd className="ml-auto hidden rounded border border-[var(--line)] px-1.5 text-[10px] xl:inline">Ctrl K</kbd>
+          </button>
           <ThemeToggle />
           <Link
             href="/#downloader"

@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Calculator, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
 import { TOOL_CATEGORIES } from "@/lib/tools";
 import { getEnabledTools } from "@/lib/services";
 import { siteUrl } from "@/lib/seo";
+import { ToolIcon } from "@/lib/tool-icons";
+import { ToolSearchBox } from "@/components/ToolSearch";
 
 export const metadata: Metadata = {
   title: "Free Online Tools — converters, generators and downloaders",
   description:
-    "Free browser tools: image converter, compressor and resizer, PDF merge and split, QR code and password generators, JSON formatter, word counter, video to MP3 and more. No signup, nothing uploaded.",
+    "Free online tools: image converter and compressor, PDF merge, split and page numbers, salary tax and Zakat calculators, CGPA, EMI and age calculators, WiFi and WhatsApp QR codes, unit converter and more. No signup, nothing uploaded.",
   keywords: [
     "free online tools",
     "image converter",
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
   },
 };
 
-const CATEGORY_ICON = { Image: ImageIcon, PDF: FileText, Text: Type, Generators: Palette, Audio: Music, Video } as const;
+const CATEGORY_ICON = { Image: ImageIcon, PDF: FileText, Calculators: Calculator, Text: Type, Generators: Palette, Audio: Music, Video } as const;
 
 const TOOLS_FAQ = [
   {
@@ -46,7 +48,7 @@ const TOOLS_FAQ = [
   },
   {
     q: "What can these tools do?",
-    a: "Images: convert, compress, resize, make favicons and Base64 data URIs. PDF: build from images, merge, split and rotate. Text: word count, case conversion, JSON formatting, Base64, URL encoding, hashing and slugs. Generators: passwords, UUIDs, QR codes, colour conversion and lorem ipsum.",
+    a: "Images: convert, compress, resize, make favicons and Base64 data URIs. PDF: build from images, merge, split, rotate and add page numbers. Calculators: Pakistan salary tax, Zakat, loan EMI, GPA/CGPA, age, percentage, BMI and a unit converter (marla, kanal, tola and more). Text: word count, case conversion, JSON formatting, Base64, URL encoding, hashing and slugs. Generators: passwords, UUIDs, QR codes (including WiFi, WhatsApp and vCard), colour conversion and lorem ipsum.",
   },
   {
     q: "Which image formats are supported?",
@@ -68,7 +70,8 @@ const TOOLS_FAQ = [
 
 export const dynamic = "force-dynamic";
 
-export default async function ToolsIndex() {
+export default async function ToolsIndex({ searchParams }: PageProps<"/tools">) {
+  const q = (await searchParams).q;
   const TOOLS = await getEnabledTools();
   const toolsByCategory = (cat: (typeof TOOL_CATEGORIES)[number]) => TOOLS.filter((t) => t.category === cat);
 
@@ -106,6 +109,16 @@ export default async function ToolsIndex() {
               </span>
             </div>
           </Reveal>
+          <Reveal delay={0.24}>
+            <ToolSearchBox className="mx-auto mt-8 max-w-xl" initialQuery={typeof q === "string" ? q.slice(0, 60) : undefined} />
+            <nav aria-label="Tool categories" className="mt-5 flex flex-wrap justify-center gap-2">
+              {TOOL_CATEGORIES.filter((c) => toolsByCategory(c).length).map((c) => (
+                <a key={c} href={`#${c.toLowerCase()}`} className="rounded-full surface px-3.5 py-1.5 text-sm font-semibold transition-colors hover:border-brand-400/60 hover:text-brand-400">
+                  {c} · {toolsByCategory(c).length}
+                </a>
+              ))}
+            </nav>
+          </Reveal>
         </div>
       </section>
 
@@ -118,7 +131,7 @@ export default async function ToolsIndex() {
         const tools = toolsByCategory(cat);
         if (!tools.length) return null;
         return (
-          <section key={cat} className="px-4 py-14 sm:px-6 lg:px-8">
+          <section key={cat} id={cat.toLowerCase()} className="scroll-mt-20 px-4 py-14 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-6xl">
               <Reveal>
                 <div className="flex items-center gap-3">
@@ -147,7 +160,7 @@ export default async function ToolsIndex() {
                           className="grid h-11 w-11 place-items-center rounded-xl text-white"
                           style={{ background: t.color, boxShadow: `0 8px 24px -8px ${t.color}` }}
                         >
-                          <Icon className="h-5 w-5" />
+                          <ToolIcon tool={t} className="h-5 w-5" />
                         </span>
                         <h3 className="mt-4 font-bold">{t.name}</h3>
                         <p className="mt-1.5 text-sm leading-relaxed text-muted">{t.tagline}</p>
@@ -161,7 +174,7 @@ export default async function ToolsIndex() {
                             </span>
                           ))}
                         </div>
-                        <span className="mt-4 flex items-center gap-1.5 text-sm font-bold text-brand-400 opacity-0 transition-opacity group-hover:opacity-100">
+                        <span className="mt-4 flex items-center gap-1.5 text-sm font-bold text-brand-400 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                           Open tool <ArrowRight className="h-4 w-4" />
                         </span>
                       </article>

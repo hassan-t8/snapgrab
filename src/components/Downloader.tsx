@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { detectPlatform, normalizeUrl } from "@/lib/platforms";
+import { trackEvent } from "@/lib/track-event";
 import type { ResolvedMedia } from "@/lib/types";
 
 const KIND_ICON = { video: FileVideo, audio: FileAudio, image: FileImage } as const;
@@ -60,6 +61,7 @@ export default function Downloader({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResolvedMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [autoPasted, setAutoPasted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastResolved = useRef<string>("");
@@ -76,17 +78,31 @@ export default function Downloader({
 
     setLoading(true);
     setError(null);
+    setErrorCode(null);
     setResult(null);
     try {
-      const res = await fetch("/api/resolve", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: clean }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error ?? "Could not read that link.");
+      let res: Response;
+      try {
+        res = await fetch("/api/resolve", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: clean }),
+        });
+      } catch {
+        throw new Error("You seem to be offline. Check your internet connection and try again.");
+      }
+      // a gateway timeout returns HTML, not JSON — never show a parser error to the visitor
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; code?: string; data?: unknown } | null;
+      if (!res.ok || !json?.ok) {
+        setErrorCode(json?.code ?? (res.status === 429 ? "RATE_LIMIT" : null));
+        throw new Error(
+          json?.error ??
+            (res.status >= 500 ? "Our server is having a moment. Please try again in a minute." : "Could not read that link."),
+        );
+      }
 
       const media = json.data as ResolvedMedia;
+      trackEvent("resolve", media.platform);
       if (only) {
         const kept = media.formats.filter((f) => f.kind === only);
         if (!kept.length) {
@@ -270,11 +286,27 @@ export default function Downloader({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4"
+            className={`mt-5 flex items-start gap-3 rounded-2xl border p-4 ${
+              errorCode === "QUOTA_EXCEEDED" || errorCode === "RATE_LIMIT" || errorCode === "DISABLED"
+                ? "border-amber-500/30 bg-amber-500/10"
+                : "border-red-500/30 bg-red-500/10"
+            }`}
           >
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            {errorCode === "QUOTA_EXCEEDED" || errorCode === "RATE_LIMIT" ? (
+              <Clock className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            )}
             <div>
-              <p className="font-semibold text-red-400">Could not process that link</p>
+              <p className={`font-semibold ${errorCode === "QUOTA_EXCEEDED" || errorCode === "RATE_LIMIT" ? "text-amber-400" : "text-red-400"}`}>
+                {errorCode === "QUOTA_EXCEEDED"
+                  ? "Downloader limit reached"
+                  : errorCode === "RATE_LIMIT"
+                    ? "Slow down a little"
+                    : errorCode === "DISABLED"
+                      ? "Temporarily unavailable"
+                      : "Could not process that link"}
+              </p>
               <p className="mt-0.5 text-sm text-muted">{error}</p>
             </div>
           </motion.div>
@@ -355,6 +387,7 @@ export default function Downloader({
                     <motion.a
                       key={f.id}
                       href={downloadHref(f)}
+                      onClick={() => trackEvent("download", `${result.platform}:${f.kind}:${f.quality}`)}
                       initial={{ opacity: 0, x: -12 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.05 * i }}

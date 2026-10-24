@@ -1,12 +1,17 @@
-export type ToolEngine = "image" | "pdf" | "text" | "generate" | "link-audio" | "link-video";
+import { QUOTA_PROVIDERS, type CostTier, type ProviderId } from "./quota-providers";
 
-export type ToolCategory = "Image" | "PDF" | "Text" | "Generators" | "Audio" | "Video";
+export type ToolEngine =
+  | "image" | "photo" | "pdf" | "pdf-pages" | "text" | "generate" | "calc" | "doc" | "link-audio" | "link-video";
+
+export type ToolCategory = "Image" | "PDF" | "Calculators" | "Text" | "Generators" | "Audio" | "Video";
 
 export type Tool = {
   slug: string;
   name: string;
   /** H1 on the tool page — keep it keyword-led */
   headline: string;
+  /** shorter <title> for search results when the headline runs past ~55 characters */
+  title?: string;
   category: ToolCategory;
   tagline: string;
   description: string;
@@ -16,9 +21,11 @@ export type Tool = {
   /** engine-specific mode */
   mode?:
     | "convert" | "compress" | "resize" | "favicon" | "to-base64"
-    | "images-to-pdf" | "merge" | "split" | "rotate"
+    | "images-to-pdf" | "merge" | "split" | "rotate" | "page-numbers"
     | "case" | "base64" | "url" | "json" | "hash" | "count"
-    | "password" | "uuid" | "qr" | "color" | "lorem";
+    | "password" | "uuid" | "qr" | "wifi-qr" | "whatsapp" | "vcard-qr" | "color" | "lorem"
+    | "income-tax-pk" | "zakat" | "emi" | "cgpa" | "age" | "percentage" | "bmi" | "unit"
+    | "currency" | "prayer" | "qibla" | "passport-photo" | "pdf-to-image" | "organize" | "invoice" | "cv";
   accept?: string;
   inputs: string[];
   outputs: string[];
@@ -28,6 +35,8 @@ export type Tool = {
   faqs: { q: string; a: string }[];
   /** related tool slugs */
   related: string[];
+  /** external API the tool depends on; tools without one run fully in the browser */
+  provider?: ProviderId;
 };
 
 const IMAGE_ACCEPT = "image/*";
@@ -463,6 +472,7 @@ export const TOOLS: Tool[] = [
     slug: "case-converter",
     name: "Case Converter",
     headline: "Case Converter — UPPER, lower, Title, camelCase & more",
+    title: "Case Converter — UPPER, lower, Title & camelCase",
     category: "Text",
     tagline: "Nine cases, one click each",
     description:
@@ -762,6 +772,7 @@ export const TOOLS: Tool[] = [
   /* ------------------------------- link based media ------------------------------- */
   {
     slug: "video-to-mp3",
+    provider: "rapidapi-downloader",
     name: "Video to MP3",
     headline: "Video to MP3 Converter — extract audio from any link",
     category: "Audio",
@@ -801,6 +812,7 @@ export const TOOLS: Tool[] = [
   },
   {
     slug: "audio-downloader",
+    provider: "rapidapi-downloader",
     name: "Audio Downloader",
     headline: "Audio Downloader — save tracks and podcasts",
     category: "Audio",
@@ -835,6 +847,7 @@ export const TOOLS: Tool[] = [
   },
   {
     slug: "video-downloader",
+    provider: "rapidapi-downloader",
     name: "Video Downloader",
     headline: "Video Downloader — every platform, one box",
     category: "Video",
@@ -868,11 +881,849 @@ export const TOOLS: Tool[] = [
     ],
     related: ["video-to-mp3", "audio-downloader", "image-converter"],
   },
+
+  /* --------------------------------- calculators --------------------------------- */
+  {
+    slug: "salary-tax-calculator-pakistan",
+    name: "Salary Tax Calculator Pakistan",
+    headline: "Salary Tax Calculator Pakistan 2026-27 — FBR income tax on your salary",
+    title: "Salary Tax Calculator Pakistan 2026-27 (FBR)",
+    category: "Calculators",
+    tagline: "Monthly and yearly income tax on your salary",
+    description:
+      "Work out the income tax on your salary for tax year 2026-27 (July 2026 to June 2027). Enter your monthly or yearly salary and see your tax, take-home pay and the slab you fall in — instantly, with no signup.",
+    engine: "calc",
+    mode: "income-tax-pk",
+    inputs: ["Monthly salary", "Yearly salary"],
+    outputs: ["Tax", "Take-home"],
+    color: "#16a34a",
+    keywords: [
+      "salary tax calculator pakistan",
+      "income tax calculator pakistan 2026-27",
+      "fbr tax calculator",
+      "tax on salary pakistan",
+      "salary tax slabs 2026-27",
+      "take home salary calculator pakistan",
+    ],
+    steps: [
+      { title: "Enter your salary", body: "Type your gross salary and choose whether it is the monthly or yearly figure." },
+      { title: "See your tax", body: "The calculator applies the 2026-27 salaried slabs and shows monthly and yearly tax." },
+      { title: "Check take-home pay", body: "Your net salary after tax appears next to the tax amount, along with your effective rate." },
+      { title: "Understand your slab", body: "The breakdown shows which slab you fall in and how the tax is built up." },
+    ],
+    faqs: [
+      {
+        q: "Which tax slabs does this calculator use?",
+        a: "The salaried-individual slabs for tax year 2026-27: 0% up to Rs 600,000 a year, then 1%, 11%, 20%, 25%, 29%, 32% and 35% across eight brackets, with the top rate starting above Rs 7,000,000. Always confirm against the latest FBR notification, because budgets can change slabs mid-year.",
+      },
+      {
+        q: "Is the tax worked out on my monthly or yearly salary?",
+        a: "Income tax in Pakistan is calculated on your yearly taxable income. If you enter a monthly salary, the calculator multiplies it by 12, works out the yearly tax, then divides it back into a monthly deduction.",
+      },
+      {
+        q: "Does it include allowances, bonuses or deductions?",
+        a: "It uses the single salary figure you enter. If you receive a taxable bonus, add it to your yearly salary. Exemptions, tax credits (such as for donations or pension contributions) and any surcharge are not included — your employer's or the FBR's figure is final.",
+      },
+      {
+        q: "Is this an official FBR calculator?",
+        a: "No. It is a free estimate based on the published slabs. For filing your return or resolving a dispute, use the FBR IRIS portal or ask a tax adviser.",
+      },
+    ],
+    related: ["zakat-calculator", "loan-emi-calculator", "percentage-calculator", "age-calculator"],
+  },
+  {
+    slug: "zakat-calculator",
+    name: "Zakat Calculator",
+    headline: "Zakat Calculator — work out your Zakat on cash, gold and savings",
+    title: "Zakat Calculator — cash, gold & savings",
+    category: "Calculators",
+    tagline: "2.5% Zakat on wealth above the Nisab",
+    description:
+      "Calculate the Zakat you owe in a minute. Add your cash, bank balance, gold, silver, business stock and money owed to you, subtract what you owe, and see whether you are above the Nisab and how much Zakat to pay.",
+    engine: "calc",
+    mode: "zakat",
+    inputs: ["Cash", "Gold", "Silver", "Savings"],
+    outputs: ["Zakat due"],
+    color: "#059669",
+    keywords: [
+      "zakat calculator",
+      "zakat calculator pakistan",
+      "how to calculate zakat",
+      "nisab amount 2026",
+      "zakat on gold calculator",
+      "zakat on savings",
+    ],
+    steps: [
+      { title: "Set today's Nisab", body: "Enter the current price of silver (or gold) per tola. The Nisab is worked out from it automatically." },
+      { title: "Add your assets", body: "Fill in cash, bank balances, the value of gold and silver, business stock, investments and money owed to you." },
+      { title: "Subtract liabilities", body: "Enter debts and bills that are due now — they reduce your zakatable wealth." },
+      { title: "See your Zakat", body: "If your net wealth is at or above the Nisab, your Zakat is 2.5% of it." },
+    ],
+    faqs: [
+      {
+        q: "What is the Nisab?",
+        a: "The Nisab is the minimum wealth a Muslim must hold for a full lunar year before Zakat becomes due. It equals 52.5 tola (612.36 g) of silver or 7.5 tola (87.48 g) of gold. Many scholars recommend the silver Nisab because it is lower, so more people give.",
+      },
+      {
+        q: "How much Zakat do I pay?",
+        a: "2.5% (one fortieth) of your total zakatable wealth, once your wealth has stayed above the Nisab for a full lunar year.",
+      },
+      {
+        q: "Is Zakat due on my house or car?",
+        a: "No. Zakat is not due on the home you live in, your personal car, household items or clothes. It is due on cash, savings, gold, silver, trade goods and investments.",
+      },
+      {
+        q: "Where do I get the gold and silver price?",
+        a: "Use today's rate per tola from your local sarafa (jewellery) market or a trusted news source. Prices change daily, so update them when you calculate.",
+      },
+      {
+        q: "Is this a religious ruling?",
+        a: "No. It is a calculator that follows the common method. For special cases — business partnerships, pension funds, loans given — please consult a qualified scholar.",
+      },
+    ],
+    related: ["salary-tax-calculator-pakistan", "percentage-calculator", "loan-emi-calculator", "unit-converter"],
+  },
+  {
+    slug: "loan-emi-calculator",
+    name: "Loan EMI Calculator",
+    headline: "Loan EMI Calculator — monthly installment for car, home and personal loans",
+    title: "Loan EMI Calculator — car, home & personal loans",
+    category: "Calculators",
+    tagline: "Monthly installment, total interest and payoff",
+    description:
+      "Find the monthly installment (EMI) on any loan. Enter the loan amount, yearly interest rate and loan period to see your EMI, the total interest you will pay and the full cost of the loan — for car, home, bike or personal financing.",
+    engine: "calc",
+    mode: "emi",
+    inputs: ["Amount", "Rate", "Tenure"],
+    outputs: ["EMI", "Interest"],
+    color: "#2563eb",
+    keywords: [
+      "emi calculator",
+      "loan calculator",
+      "car loan calculator pakistan",
+      "home loan emi calculator",
+      "monthly installment calculator",
+      "personal loan calculator",
+    ],
+    steps: [
+      { title: "Enter the loan amount", body: "The amount you are borrowing, after any down payment." },
+      { title: "Add the interest rate", body: "The yearly rate the bank quotes, for example 18%." },
+      { title: "Choose the period", body: "Set the loan length in years or months." },
+      { title: "Read your installment", body: "See the monthly EMI, total interest and a year-by-year payoff table." },
+    ],
+    faqs: [
+      {
+        q: "How is EMI calculated?",
+        a: "EMI = P × r × (1 + r)^n ÷ ((1 + r)^n − 1), where P is the loan amount, r is the monthly interest rate (yearly rate ÷ 12 ÷ 100) and n is the number of months.",
+      },
+      {
+        q: "Does it work for Islamic (Ijarah / Diminishing Musharakah) financing?",
+        a: "The maths of a fixed monthly rental is similar, so it gives a useful estimate. The bank's own schedule — including insurance, processing fees and rate resets — is the final figure.",
+      },
+      {
+        q: "Why is my bank's installment different?",
+        a: "Banks add insurance, processing fees or tax, and many car and home loans use a variable rate linked to KIBOR, which changes the installment over time.",
+      },
+    ],
+    related: ["salary-tax-calculator-pakistan", "percentage-calculator", "zakat-calculator", "unit-converter"],
+  },
+  {
+    slug: "cgpa-calculator",
+    name: "GPA & CGPA Calculator",
+    headline: "GPA & CGPA Calculator — semester GPA and cumulative CGPA on a 4.0 scale",
+    title: "GPA & CGPA Calculator (4.0 scale)",
+    category: "Calculators",
+    tagline: "Semester GPA and overall CGPA (4.0 scale)",
+    description:
+      "Calculate your semester GPA from course grades and credit hours, then your cumulative CGPA across all semesters. Uses the 4.0 grading scale followed by most universities in Pakistan.",
+    engine: "calc",
+    mode: "cgpa",
+    inputs: ["Grades", "Credit hours"],
+    outputs: ["GPA", "CGPA"],
+    color: "#7c3aed",
+    keywords: [
+      "cgpa calculator",
+      "gpa calculator",
+      "semester gpa calculator",
+      "cgpa calculator pakistan",
+      "hec cgpa calculator",
+      "how to calculate cgpa",
+    ],
+    steps: [
+      { title: "Add your courses", body: "Enter each course's credit hours and pick your grade (or type the grade points)." },
+      { title: "Get your GPA", body: "Your semester GPA updates as you type." },
+      { title: "Add past semesters", body: "Enter the GPA and credit hours of earlier semesters." },
+      { title: "See your CGPA", body: "Your cumulative CGPA across every semester appears instantly." },
+    ],
+    faqs: [
+      {
+        q: "How is GPA calculated?",
+        a: "Multiply each course's grade points by its credit hours, add them up, then divide by the total credit hours. CGPA does the same across all semesters.",
+      },
+      {
+        q: "Which grade points does it use?",
+        a: "A common 4.0 scale: A = 4.0, A− = 3.67, B+ = 3.33, B = 3.0, B− = 2.67, C+ = 2.33, C = 2.0, C− = 1.67, D+ = 1.33, D = 1.0, F = 0. Universities differ slightly, so you can also type the exact grade points from your transcript.",
+      },
+      {
+        q: "Can I convert CGPA to percentage?",
+        a: "Each university publishes its own conversion, so there is no single formula. Check your university's rules or transcript for the official method.",
+      },
+    ],
+    related: ["percentage-calculator", "age-calculator", "word-counter", "unit-converter"],
+  },
+  {
+    slug: "age-calculator",
+    name: "Age Calculator",
+    headline: "Age Calculator — exact age in years, months and days",
+    category: "Calculators",
+    tagline: "Exact age and next birthday countdown",
+    description:
+      "Find your exact age in years, months and days from your date of birth, plus the total days you have lived and how long until your next birthday. Check age eligibility for jobs, admissions and forms on any date.",
+    engine: "calc",
+    mode: "age",
+    inputs: ["Date of birth"],
+    outputs: ["Exact age"],
+    color: "#db2777",
+    keywords: [
+      "age calculator",
+      "calculate age from date of birth",
+      "age calculator for job",
+      "exact age calculator",
+      "how old am i",
+      "date of birth calculator",
+    ],
+    steps: [
+      { title: "Enter your date of birth", body: "Pick the day you were born." },
+      { title: "Choose the 'age on' date", body: "Leave it as today, or set the closing date of a job ad or admission form." },
+      { title: "Read your exact age", body: "Years, months and days — plus total months, weeks and days." },
+    ],
+    faqs: [
+      {
+        q: "How do I check age eligibility for a job?",
+        a: "Set the 'age on' date to the closing date in the job advertisement. The calculator shows your exact age on that day so you can compare it with the upper and lower age limits.",
+      },
+      {
+        q: "Does it handle leap years?",
+        a: "Yes. It counts real calendar months and days, so leap years and months of different lengths are handled correctly.",
+      },
+    ],
+    related: ["cgpa-calculator", "percentage-calculator", "bmi-calculator", "unit-converter"],
+  },
+  {
+    slug: "percentage-calculator",
+    name: "Percentage Calculator",
+    headline: "Percentage Calculator — marks percentage, percent of a number and % change",
+    title: "Percentage Calculator — marks, % of & % change",
+    category: "Calculators",
+    tagline: "Marks %, X% of Y, and percentage change",
+    description:
+      "Every everyday percentage sum in one place: your marks percentage, what X% of a number is, what percentage one number is of another, and the percentage increase or decrease between two values.",
+    engine: "calc",
+    mode: "percentage",
+    inputs: ["Numbers", "Marks"],
+    outputs: ["Percentage"],
+    color: "#ea580c",
+    keywords: [
+      "percentage calculator",
+      "marks percentage calculator",
+      "percentage of marks",
+      "percentage increase calculator",
+      "discount percentage calculator",
+      "how to calculate percentage",
+    ],
+    steps: [
+      { title: "Pick a calculation", body: "Marks percentage, X% of Y, X as a % of Y, or percentage change." },
+      { title: "Enter your numbers", body: "Results update instantly as you type." },
+      { title: "Copy the answer", body: "Use the result for results cards, discounts, salary raises or price changes." },
+    ],
+    faqs: [
+      {
+        q: "How do I calculate marks percentage?",
+        a: "Divide the marks you obtained by the total marks and multiply by 100. For example, 850 out of 1100 is (850 ÷ 1100) × 100 = 77.27%.",
+      },
+      {
+        q: "How do I calculate a discount?",
+        a: "Use 'X% of Y' to find the discount amount (for example 20% of Rs 5,000 = Rs 1,000), then subtract it from the price.",
+      },
+    ],
+    related: ["cgpa-calculator", "salary-tax-calculator-pakistan", "loan-emi-calculator", "unit-converter"],
+  },
+  {
+    slug: "bmi-calculator",
+    name: "BMI Calculator",
+    headline: "BMI Calculator — check your Body Mass Index in kg and feet",
+    title: "BMI Calculator — Body Mass Index in kg & feet",
+    category: "Calculators",
+    tagline: "Body Mass Index with healthy weight range",
+    description:
+      "Calculate your Body Mass Index from your weight and height in kilograms, centimetres or feet and inches. See your BMI category and the healthy weight range for your height.",
+    engine: "calc",
+    mode: "bmi",
+    inputs: ["Weight", "Height"],
+    outputs: ["BMI"],
+    color: "#0891b2",
+    keywords: ["bmi calculator", "bmi calculator kg feet", "body mass index calculator", "healthy weight calculator", "bmi chart"],
+    steps: [
+      { title: "Enter your weight", body: "In kilograms." },
+      { title: "Enter your height", body: "In centimetres, or feet and inches." },
+      { title: "See your BMI", body: "Your BMI, category and the healthy weight range for your height." },
+    ],
+    faqs: [
+      {
+        q: "What is a healthy BMI?",
+        a: "For most adults, 18.5 to 24.9. Below 18.5 is underweight, 25 to 29.9 is overweight and 30 or above is obese. For South Asian adults, health risks can start at a lower BMI (around 23).",
+      },
+      {
+        q: "Is BMI accurate for everyone?",
+        a: "BMI is a quick screening number, not a diagnosis. It does not separate muscle from fat, and it is not meant for children, pregnant women or athletes. Talk to a doctor about your health.",
+      },
+    ],
+    related: ["age-calculator", "unit-converter", "percentage-calculator", "cgpa-calculator"],
+  },
+  {
+    slug: "unit-converter",
+    name: "Unit Converter",
+    headline: "Unit Converter — length, weight, temperature, area and more",
+    title: "Unit Converter — length, weight, area & more",
+    category: "Calculators",
+    tagline: "Convert length, weight, temperature, area, volume and speed",
+    description:
+      "Convert between metric and imperial units instantly: length (km, miles, feet, inches), weight (kg, pounds, grams, tola), temperature (°C, °F, K), area (marla, kanal, square feet, acres), volume and speed.",
+    engine: "calc",
+    mode: "unit",
+    inputs: ["Any unit"],
+    outputs: ["Converted unit"],
+    color: "#ca8a04",
+    keywords: [
+      "unit converter",
+      "marla to square feet",
+      "kanal to marla",
+      "kg to pounds",
+      "feet to cm",
+      "celsius to fahrenheit",
+      "tola to grams",
+    ],
+    steps: [
+      { title: "Pick a category", body: "Length, weight, temperature, area, volume or speed." },
+      { title: "Choose units", body: "Select the unit you have and the unit you need." },
+      { title: "Type a value", body: "The converted value appears instantly, along with a quick reference table." },
+    ],
+    faqs: [
+      {
+        q: "How many square feet are in a marla?",
+        a: "It depends on where the land is. Many housing societies use 1 marla = 225 square feet, while older revenue records often use 272.25 square feet. The converter offers both — check which one your property documents use.",
+      },
+      {
+        q: "How many grams are in a tola?",
+        a: "One tola is 11.6638 grams — the standard unit for gold and silver in Pakistan and India.",
+      },
+    ],
+    related: ["percentage-calculator", "bmi-calculator", "zakat-calculator", "age-calculator"],
+  },
+
+  /* ------------------------------- QR & link generators ------------------------------- */
+  {
+    slug: "wifi-qr-code-generator",
+    name: "WiFi QR Code Generator",
+    headline: "WiFi QR Code Generator — let guests join your WiFi by scanning",
+    title: "WiFi QR Code Generator — share WiFi by scan",
+    category: "Generators",
+    tagline: "Share your WiFi without typing the password",
+    description:
+      "Create a QR code that connects phones to your WiFi network in one scan — perfect for homes, offices, cafés and shops. Enter the network name and password, then print or share the code. Nothing is sent to a server.",
+    engine: "generate",
+    mode: "wifi-qr",
+    inputs: ["WiFi name", "Password"],
+    outputs: ["PNG", "SVG"],
+    color: "#0ea5e9",
+    keywords: ["wifi qr code generator", "wifi qr code", "share wifi qr", "wifi password qr code", "qr code for wifi"],
+    steps: [
+      { title: "Enter the network name", body: "Type your WiFi name (SSID) exactly as it appears on your phone." },
+      { title: "Add the password and security", body: "Choose WPA/WPA2 for most routers and type the password." },
+      { title: "Download and print", body: "Save the QR code as PNG or SVG and stick it where guests can scan it." },
+    ],
+    faqs: [
+      {
+        q: "Which phones can scan a WiFi QR code?",
+        a: "Almost all: iPhones with iOS 11 or later and Android phones with Android 10 or later connect straight from the camera app. Older phones can use a QR scanner app.",
+      },
+      {
+        q: "Is my WiFi password safe?",
+        a: "The QR code is generated entirely in your browser — the password never leaves your device. Anyone who scans the printed code can join, so only display it where you would share the password anyway.",
+      },
+    ],
+    related: ["qr-code-generator", "whatsapp-link-generator", "vcard-qr-code-generator", "password-generator"],
+  },
+  {
+    slug: "whatsapp-link-generator",
+    name: "WhatsApp Link Generator",
+    headline: "WhatsApp Link Generator — create a wa.me link and QR code",
+    title: "WhatsApp Link Generator — wa.me link & QR",
+    category: "Generators",
+    tagline: "Click-to-chat link and QR for your number",
+    description:
+      "Create a WhatsApp click-to-chat link (wa.me) with an optional pre-filled message, plus a QR code customers can scan. Ideal for businesses, shops, Instagram bios and visiting cards.",
+    engine: "generate",
+    mode: "whatsapp",
+    inputs: ["Phone number", "Message"],
+    outputs: ["Link", "QR code"],
+    color: "#22c55e",
+    keywords: [
+      "whatsapp link generator",
+      "wa.me link",
+      "whatsapp qr code",
+      "click to chat whatsapp",
+      "whatsapp business link",
+    ],
+    steps: [
+      { title: "Enter your number", body: "Include the country code, for example 92 for Pakistan, without the leading zero." },
+      { title: "Add a message (optional)", body: "Pre-fill the first message customers send, such as 'Hi, I want to order…'." },
+      { title: "Copy or download", body: "Copy the wa.me link or download the QR code for print." },
+    ],
+    faqs: [
+      {
+        q: "How do I write a Pakistani number?",
+        a: "Drop the leading zero and add 92. For example, 0300 1234567 becomes 923001234567.",
+      },
+      {
+        q: "Does the other person need to save my number?",
+        a: "No. The link opens a chat with your number directly, even if they have not saved it.",
+      },
+    ],
+    related: ["qr-code-generator", "wifi-qr-code-generator", "vcard-qr-code-generator", "url-encoder"],
+  },
+  {
+    slug: "vcard-qr-code-generator",
+    name: "vCard QR Code Generator",
+    headline: "vCard QR Code Generator — digital business card QR",
+    category: "Generators",
+    tagline: "Save your contact to any phone in one scan",
+    description:
+      "Turn your contact details into a QR code that saves your name, phone, email, company and website straight into a phone's contacts. Print it on business cards, CVs or your shop counter.",
+    engine: "generate",
+    mode: "vcard-qr",
+    inputs: ["Name", "Phone", "Email"],
+    outputs: ["PNG", "SVG"],
+    color: "#6366f1",
+    keywords: ["vcard qr code generator", "business card qr code", "contact qr code", "digital business card", "qr code for contact"],
+    steps: [
+      { title: "Fill in your details", body: "Name, phone, email, company, job title and website — only name is required." },
+      { title: "Preview the QR code", body: "It updates as you type." },
+      { title: "Download and print", body: "Save as PNG for sharing or SVG for sharp printing on cards." },
+    ],
+    faqs: [
+      {
+        q: "What happens when someone scans it?",
+        a: "Their phone shows a 'Create contact' card with your details filled in — they just tap Save.",
+      },
+      {
+        q: "Why is the QR code getting dense?",
+        a: "Every detail you add makes the code larger. Keep only what people need, and print it at least 2.5 cm wide.",
+      },
+    ],
+    related: ["qr-code-generator", "whatsapp-link-generator", "wifi-qr-code-generator", "image-resizer"],
+  },
+
+  /* ------------------------------------ PDF ------------------------------------ */
+  {
+    slug: "add-page-numbers-to-pdf",
+    name: "Add Page Numbers to PDF",
+    headline: "Add Page Numbers to PDF — free, in your browser",
+    category: "PDF",
+    tagline: "Number the pages of any PDF",
+    description:
+      "Add page numbers to a PDF in seconds. Choose the position, style (1, Page 1, 1 of 10) and starting number — for assignments, theses, reports and contracts. The file never leaves your device.",
+    engine: "pdf",
+    mode: "page-numbers",
+    accept: "application/pdf",
+    inputs: ["PDF"],
+    outputs: ["PDF"],
+    color: "#e11d48",
+    keywords: ["add page numbers to pdf", "pdf page numbers", "number pdf pages", "insert page numbers pdf free"],
+    steps: [
+      { title: "Add your PDF", body: "Drop the document onto the panel." },
+      { title: "Pick the style", body: "Choose where the numbers go, the format and the starting number." },
+      { title: "Download", body: "Your numbered PDF is created locally and downloads straight away." },
+    ],
+    faqs: [
+      {
+        q: "Can I start numbering from a page other than 1?",
+        a: "Yes — set 'Start at' to any number, for example 3 if your cover and contents pages come first.",
+      },
+      {
+        q: "Is my document uploaded?",
+        a: "No. The numbering is done in your browser with pdf-lib, so the PDF never leaves your device.",
+      },
+    ],
+    related: ["merge-pdf", "split-pdf", "rotate-pdf", "image-to-pdf"],
+  },
+  /* ------------------------------ daily life & money ------------------------------ */
+  {
+    slug: "currency-converter",
+    name: "Currency Converter",
+    headline: "Currency Converter — live USD, AED, SAR, GBP to PKR rates",
+    title: "Currency Converter — USD, AED, SAR to PKR",
+    category: "Calculators",
+    tagline: "Convert 160+ currencies with daily rates",
+    description:
+      "Convert dollars, dirhams, riyals, pounds, euros and 160+ other currencies to Pakistani rupees and back. Rates update every day, and a quick table shows your amount in the currencies people send home most.",
+    engine: "calc",
+    mode: "currency",
+    provider: "exchange-rates",
+    inputs: ["Amount", "USD", "AED", "SAR", "GBP", "EUR"],
+    outputs: ["PKR", "Any currency"],
+    color: "#0ea5e9",
+    keywords: [
+      "currency converter",
+      "dollar to pkr",
+      "usd to pkr today",
+      "aed to pkr",
+      "sar to pkr",
+      "pound to pkr",
+      "euro to pkr",
+      "dirham rate in pakistan today",
+      "riyal rate today",
+    ],
+    steps: [
+      { title: "Enter the amount", body: "Type how much you want to convert. Commas are fine." },
+      { title: "Pick the currencies", body: "Choose the currency you have and the one you want. Use ⇄ to swap them." },
+      { title: "Read the result", body: "See the converted amount, the exact rate, and a table of the same amount in other popular currencies." },
+    ],
+    faqs: [
+      {
+        q: "How often are the rates updated?",
+        a: "Once a day. They are mid-market reference rates from Exchange Rate API, which is what most converters show. Banks, exchange companies and money-transfer apps add their own margin, so the rate you actually get will be a little lower.",
+      },
+      {
+        q: "Is this the open market or interbank rate in Pakistan?",
+        a: "It is an international mid-market rate, closest to the interbank rate. The open-market rate at exchange companies can differ by a few rupees, especially when the rupee is moving quickly.",
+      },
+      {
+        q: "Can I use it for remittances from Saudi Arabia, the UAE or the UK?",
+        a: "Yes — choose SAR, AED or GBP as the 'From' currency and PKR as 'To'. Use the result as a guide, then compare it with what your bank or transfer app offers.",
+      },
+      {
+        q: "Is it free?",
+        a: "Completely free, with no signup and no limit on how many conversions you do.",
+      },
+    ],
+    related: ["salary-tax-calculator-pakistan", "zakat-calculator", "loan-emi-calculator", "percentage-calculator"],
+  },
+  {
+    slug: "prayer-times",
+    name: "Prayer Times",
+    headline: "Prayer Times Today — Namaz timings for Karachi, Lahore, Islamabad & worldwide",
+    title: "Prayer Times Today — Namaz Timings Pakistan",
+    category: "Calculators",
+    tagline: "Today's Fajr, Dhuhr, Asr, Maghrib and Isha",
+    description:
+      "Accurate namaz timings for today in Karachi, Lahore, Islamabad and every major Pakistani city, plus the Gulf, UK, Europe and North America. Hanafi or Shafi Asr, a countdown to the next prayer, and the Qibla direction — all calculated on your device.",
+    engine: "calc",
+    mode: "prayer",
+    inputs: ["City", "Your location"],
+    outputs: ["Prayer times", "Qibla"],
+    color: "#059669",
+    keywords: [
+      "prayer times",
+      "namaz time today",
+      "prayer times karachi",
+      "prayer times lahore",
+      "prayer times islamabad",
+      "fajr time today",
+      "maghrib time today",
+      "namaz timing",
+      "salah times",
+    ],
+    steps: [
+      { title: "Choose your city", body: "Pick from the list or tap 'Use my location' for exact times where you are." },
+      { title: "Check the method", body: "Pakistan defaults to the Karachi method with Hanafi Asr. Change either to match your local mosque." },
+      { title: "See today's times", body: "All five prayers and sunrise are shown, with a live countdown to the next one." },
+    ],
+    faqs: [
+      {
+        q: "How are the prayer times calculated?",
+        a: "Astronomically, from the sun's position for your city's coordinates and today's date, using the same standard methods mosques use (University of Islamic Sciences Karachi, Umm al-Qura, Muslim World League and others). The calculation runs on your device, so it also works offline once the page has loaded.",
+      },
+      {
+        q: "Why is my mosque's time a few minutes different?",
+        a: "Many mosques add a few minutes of caution (ihtiyat) or use a slightly different angle for Fajr and Isha. If your local timetable is consistently different, try another calculation method.",
+      },
+      {
+        q: "What is the difference between Hanafi and Shafi Asr?",
+        a: "Hanafi Asr begins when an object's shadow is twice its length (plus its noon shadow); Shafi, Maliki and Hanbali Asr begin at once its length. Hanafi Asr is therefore later. Most mosques in Pakistan follow Hanafi timing.",
+      },
+      {
+        q: "Is my location stored?",
+        a: "No. If you use 'Use my location', your coordinates stay in your browser to calculate the times and are never sent to our server.",
+      },
+    ],
+    related: ["qibla-direction", "zakat-calculator", "age-calculator", "currency-converter"],
+  },
+  {
+    slug: "qibla-direction",
+    name: "Qibla Direction Finder",
+    headline: "Qibla Direction Finder — find the Qibla from anywhere with a compass",
+    title: "Qibla Direction Finder with Compass",
+    category: "Calculators",
+    tagline: "Exact Qibla bearing from your location",
+    description:
+      "Find the Qibla direction from your city or exact location. See the bearing in degrees from north, and on a phone use the live compass to turn until the arrow points to the Kaaba in Makkah.",
+    engine: "calc",
+    mode: "qibla",
+    inputs: ["City", "Your location"],
+    outputs: ["Bearing", "Compass"],
+    color: "#047857",
+    keywords: ["qibla direction", "qibla finder", "qibla compass", "qibla direction from my location", "kaaba direction", "qibla direction pakistan"],
+    steps: [
+      { title: "Set your location", body: "Pick your city, or tap 'Use my location' for the most accurate bearing." },
+      { title: "Read the bearing", body: "The Qibla is shown in degrees clockwise from true north, with the compass point." },
+      { title: "Use the live compass", body: "On a phone, turn on the compass, hold it flat and rotate until the Kaaba marker points straight up." },
+    ],
+    faqs: [
+      {
+        q: "How accurate is the Qibla direction?",
+        a: "The bearing is calculated with the great-circle formula from your coordinates to the Kaaba, which is exact. The live compass depends on your phone's sensor — keep it away from metal and magnets, and move it in a figure-eight to calibrate if the arrow drifts.",
+      },
+      {
+        q: "What is the Qibla direction from Pakistan?",
+        a: "Roughly west, slightly south: about 268° from north in Karachi, 260° in Lahore and 256° in Islamabad. Choose your city for the exact figure.",
+      },
+      {
+        q: "Why does the live compass not work on my laptop?",
+        a: "Most laptops and desktops have no compass sensor. Use the degree bearing with a phone compass app, or open this page on your phone.",
+      },
+    ],
+    related: ["prayer-times", "zakat-calculator", "unit-converter"],
+  },
+
+  /* ------------------------------------ photos ------------------------------------ */
+  {
+    slug: "passport-photo-maker",
+    name: "Passport Photo Maker",
+    headline: "Passport Photo Maker — Pakistan passport, CNIC & visa photos online",
+    title: "Passport Photo Maker — Pakistan, CNIC & Visa",
+    category: "Image",
+    tagline: "Print-ready 35×45 mm, 2×2 in and visa photos",
+    description:
+      "Make passport-size photos at home for your Pakistani passport, NADRA CNIC, UK or Schengen visa, US visa or Canada passport. Crop to the exact size, set a white or light background, and download a single photo or a print sheet for 4×6 photo paper or A4.",
+    engine: "photo",
+    mode: "passport-photo",
+    accept: "image/*",
+    inputs: ["JPG", "PNG", "WEBP", "HEIC*"],
+    outputs: ["JPG", "Print sheet", "PDF"],
+    color: "#2563eb",
+    keywords: [
+      "passport photo maker",
+      "passport size photo online",
+      "passport size photo pakistan",
+      "cnic photo size",
+      "nadra photo",
+      "35x45 photo",
+      "2x2 photo maker",
+      "visa photo maker",
+      "passport photo print sheet 4x6",
+    ],
+    steps: [
+      { title: "Upload a photo", body: "Use a well-lit photo taken straight on, against a plain wall." },
+      { title: "Choose the size", body: "Pick Pakistan passport/CNIC, UK/Schengen, US or Canada — or enter a custom size in millimetres." },
+      { title: "Frame your face", body: "Drag and zoom so your head fits the guide, and choose a background colour." },
+      { title: "Download or print", body: "Save a single photo, or a print sheet with several copies to print on 4×6 photo paper or A4." },
+    ],
+    faqs: [
+      {
+        q: "What size is a Pakistani passport and CNIC photo?",
+        a: "35 × 45 mm with a white or light background, your face centred and looking straight at the camera with a neutral expression. NADRA and the Directorate of Passports usually capture photos at the counter, but many visa and form applications still ask you to attach one.",
+      },
+      {
+        q: "Can I print the photos myself?",
+        a: "Yes. Download the 4×6 inch print sheet and print it at any photo shop or on a photo printer at 100% scale (no 'fit to page'), then cut along the gaps.",
+      },
+      {
+        q: "Is my photo uploaded anywhere?",
+        a: "No. Cropping and the print sheet are made entirely in your browser — your photo never leaves your device.",
+      },
+      {
+        q: "Will my photo be accepted?",
+        a: "The tool gets the size and layout right, but acceptance also depends on lighting, expression, glasses and background. Always check the latest rules of the office you are applying to.",
+      },
+    ],
+    related: ["image-resizer", "image-compressor", "image-to-pdf", "cv-maker"],
+  },
+
+  /* ------------------------------------ PDF pages ------------------------------------ */
+  {
+    slug: "pdf-to-jpg",
+    name: "PDF to JPG",
+    headline: "PDF to JPG — convert PDF pages to JPG or PNG images free",
+    title: "PDF to JPG — convert PDF pages to images",
+    category: "PDF",
+    tagline: "Turn every PDF page into an image",
+    description:
+      "Convert PDF pages to high-quality JPG or PNG images. Choose the resolution, pick which pages you need, and download them one by one or all together. Works offline in your browser — nothing is uploaded.",
+    engine: "pdf-pages",
+    mode: "pdf-to-image",
+    accept: "application/pdf",
+    inputs: ["PDF"],
+    outputs: ["JPG", "PNG"],
+    color: "#f97316",
+    keywords: ["pdf to jpg", "pdf to image", "pdf to png", "convert pdf to jpg free", "pdf page to image", "save pdf as jpg"],
+    steps: [
+      { title: "Add your PDF", body: "Drop a PDF onto the panel or choose it from your device." },
+      { title: "Choose format and quality", body: "Pick JPG for small files or PNG for sharp text, and a resolution from 1× to 3×." },
+      { title: "Convert and download", body: "Every page becomes an image you can download individually or all at once." },
+    ],
+    faqs: [
+      {
+        q: "Which resolution should I choose?",
+        a: "2× is a good default for sharing and printing on A4. Use 3× for very fine print or diagrams, and 1× for large documents on a phone, because high resolutions use a lot of memory.",
+      },
+      {
+        q: "JPG or PNG?",
+        a: "JPG makes much smaller files and suits photos and scanned pages. PNG keeps text and line drawings perfectly sharp but files are larger.",
+      },
+      {
+        q: "Does it work with password-protected PDFs?",
+        a: "Not yet — remove the password first in your PDF reader, then convert the unlocked copy.",
+      },
+      {
+        q: "Is my PDF uploaded?",
+        a: "No. Pages are rendered inside your browser with PDF.js, so the document never leaves your device.",
+      },
+    ],
+    related: ["organize-pdf", "image-to-pdf", "split-pdf", "image-compressor"],
+  },
+  {
+    slug: "organize-pdf",
+    name: "Organize PDF",
+    headline: "Organize PDF — reorder, delete and rotate PDF pages online",
+    title: "Organize PDF — reorder, delete & rotate pages",
+    category: "PDF",
+    tagline: "Rearrange, remove or rotate pages visually",
+    description:
+      "See every page of your PDF as a thumbnail, then drag to reorder, delete pages you do not need and rotate sideways scans. Save a clean new PDF in one click — free, private and right in your browser.",
+    engine: "pdf-pages",
+    mode: "organize",
+    accept: "application/pdf",
+    inputs: ["PDF"],
+    outputs: ["PDF"],
+    color: "#db2777",
+    keywords: ["organize pdf", "reorder pdf pages", "delete pages from pdf", "remove pages from pdf", "rearrange pdf pages", "rotate pdf page"],
+    steps: [
+      { title: "Add your PDF", body: "Drop the document and wait a moment for the page thumbnails." },
+      { title: "Arrange the pages", body: "Drag pages into a new order, delete the ones you do not want and rotate any that are sideways." },
+      { title: "Save the new PDF", body: "Download your reorganised document. The original file is never changed." },
+    ],
+    faqs: [
+      {
+        q: "Will the quality of my PDF change?",
+        a: "No. Pages are copied as they are — text stays selectable and images are not recompressed. Only the order, rotation and which pages are included change.",
+      },
+      {
+        q: "Can I undo a deleted page?",
+        a: "Until you save, yes — your original file is untouched, so you can start again at any time.",
+      },
+      {
+        q: "Is there a page limit?",
+        a: "There is no fixed limit. Very large documents (hundreds of pages) just take longer to show thumbnails, especially on phones.",
+      },
+    ],
+    related: ["merge-pdf", "split-pdf", "rotate-pdf", "pdf-to-jpg"],
+  },
+
+  /* ------------------------------------ documents ------------------------------------ */
+  {
+    slug: "invoice-generator",
+    name: "Invoice Generator",
+    headline: "Free Invoice Generator — create and download PDF invoices",
+    title: "Free Invoice Generator — PDF invoices",
+    category: "Generators",
+    tagline: "Professional invoices in PKR, USD and more",
+    description:
+      "Create a professional invoice in minutes. Add your business details, client, line items, discount, sales tax and payment details, then download a clean PDF. Your details are saved in your browser for next time — no account needed.",
+    engine: "doc",
+    mode: "invoice",
+    inputs: ["Business details", "Line items"],
+    outputs: ["PDF invoice"],
+    color: "#7c3aed",
+    keywords: [
+      "invoice generator",
+      "free invoice maker",
+      "invoice template pdf",
+      "online invoice generator pakistan",
+      "bill maker",
+      "freelance invoice",
+      "invoice format",
+    ],
+    steps: [
+      { title: "Add your details", body: "Enter your business name, contact details and the client you are billing." },
+      { title: "List the items", body: "Add products or services with quantity and price. Totals, discount and tax calculate automatically." },
+      { title: "Download the PDF", body: "Check the live preview and download a print-ready invoice to send to your client." },
+    ],
+    faqs: [
+      {
+        q: "Is the invoice generator really free?",
+        a: "Yes — unlimited invoices, no watermark and no signup.",
+      },
+      {
+        q: "Can I add sales tax or GST?",
+        a: "Yes. Enter the tax name and rate (for example Sales tax 16% or GST 18%) and it is applied after any discount.",
+      },
+      {
+        q: "Where is my data saved?",
+        a: "Only in your own browser, so your business details are filled in next time you visit on the same device. Nothing is sent to our server.",
+      },
+      {
+        q: "Which currencies are supported?",
+        a: "Pakistani rupees, US dollars, pounds, euros, dirhams, riyals and other common currencies — pick one from the currency list.",
+      },
+    ],
+    related: ["cv-maker", "percentage-calculator", "currency-converter", "qr-code-generator"],
+  },
+  {
+    slug: "cv-maker",
+    name: "CV Maker",
+    headline: "Free CV Maker — build an ATS-friendly resume and download PDF",
+    title: "Free CV Maker — ATS-friendly resume PDF",
+    category: "Generators",
+    tagline: "A clean, ATS-friendly CV in minutes",
+    description:
+      "Build a professional CV that passes applicant tracking systems. Fill in your experience, education and skills, choose a clean layout and download a PDF ready for jobs in Pakistan, the Gulf or abroad. No signup, and your data stays in your browser.",
+    engine: "doc",
+    mode: "cv",
+    inputs: ["Experience", "Education", "Skills"],
+    outputs: ["PDF CV"],
+    color: "#0d9488",
+    keywords: ["cv maker", "resume builder", "free cv maker", "ats resume", "cv format pakistan", "cv template", "resume maker online free", "cv for job"],
+    steps: [
+      { title: "Fill in your details", body: "Add your contact details, a short summary, work experience, education and skills." },
+      { title: "Choose a layout", body: "Pick a clean, single-column template that ATS software can read reliably." },
+      { title: "Download your CV", body: "Preview it live and download a PDF ready to send or upload to job portals." },
+    ],
+    faqs: [
+      {
+        q: "What makes a CV ATS-friendly?",
+        a: "Simple single-column layout, standard section headings (Experience, Education, Skills), real text instead of images, and keywords from the job description. Our templates follow all of these.",
+      },
+      {
+        q: "Should I add a photo to my CV?",
+        a: "For most private-sector jobs in Pakistan and the Gulf a photo is optional; for UK, US and European applications leave it out. Focus on clear, measurable achievements instead.",
+      },
+      {
+        q: "How long should my CV be?",
+        a: "One page for students and up to about five years of experience, two pages for more senior roles.",
+      },
+      {
+        q: "Is my information saved?",
+        a: "Only in your browser on this device, so you can come back and edit it. Nothing is uploaded to our server.",
+      },
+    ],
+    related: ["passport-photo-maker", "invoice-generator", "word-counter", "image-to-pdf"],
+  },
 ];
 
 export const TOOL_MAP: Record<string, Tool> = Object.fromEntries(TOOLS.map((t) => [t.slug, t]));
 
-export const TOOL_CATEGORIES: ToolCategory[] = ["Image", "PDF", "Text", "Generators", "Audio", "Video"];
+export const TOOL_CATEGORIES: ToolCategory[] = ["Image", "PDF", "Calculators", "Text", "Generators", "Audio", "Video"];
 
 export function toolsByCategory(category: ToolCategory) {
   return TOOLS.filter((t) => t.category === category);
@@ -880,4 +1731,8 @@ export function toolsByCategory(category: ToolCategory) {
 
 export function relatedTools(tool: Tool) {
   return tool.related.map((s) => TOOL_MAP[s]).filter(Boolean);
+}
+
+export function toolCostTier(tool: Tool): CostTier {
+  return tool.provider ? QUOTA_PROVIDERS[tool.provider].tier : "free";
 }

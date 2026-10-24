@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, ExternalLink, Loader2, MessageSquare, Save, Search, Undo2 } from "lucide-react";
-import { Panel } from "./ui";
+import { Badge, Panel } from "./ui";
+import { notify } from "@/components/Toaster";
+import { COST_TIER_LABEL, type CostTier } from "@/lib/quota-providers";
 
 export type ServiceRow = {
   kind: "tool" | "platform";
@@ -18,7 +20,12 @@ export type ServiceRow = {
   uses: number;
   enabled: boolean;
   note: string;
+  tier: CostTier;
+  /** its API allowance is used up right now (and not force-enabled) */
+  paused: boolean;
 };
+
+const TIERS: ("all" | CostTier)[] = ["all", "free", "free-api", "paid"];
 
 type Draft = { enabled: boolean; note: string };
 
@@ -29,6 +36,7 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
   );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "live" | "hidden">("all");
+  const [tier, setTier] = useState<"all" | CostTier>("all");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +58,7 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
     const visible = rows.filter((r) => {
+      if (tier !== "all" && r.tier !== tier) return false;
       if (filter === "live" && !draft[r.key].enabled) return false;
       if (filter === "hidden" && draft[r.key].enabled) return false;
       if (!q) return true;
@@ -58,7 +67,7 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
     const map = new Map<string, ServiceRow[]>();
     visible.forEach((r) => map.set(r.group, [...(map.get(r.group) ?? []), r]));
     return [...map.entries()];
-  }, [rows, query, filter, draft]);
+  }, [rows, query, filter, tier, draft]);
 
   function toggle(key: string) {
     setDraft((d) => ({ ...d, [key]: { ...d[key], enabled: !d[key].enabled } }));
@@ -105,10 +114,12 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Could not save.");
       setSaved(true);
+      notify.success("Changes applied", "The site is updated.");
       router.refresh();
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed.");
+      notify.error("Could not save", err instanceof Error ? err.message : undefined);
     } finally {
       setSaving(false);
     }
@@ -116,8 +127,30 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
 
   const hiddenCount = rows.filter((r) => !draft[r.key].enabled).length;
 
+  const tierCount = (t: "all" | CostTier) => (t === "all" ? rows.length : rows.filter((r) => r.tier === t).length);
+
   return (
     <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {TIERS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTier(t)}
+            className={`rounded-2xl p-4 text-left transition-all ${
+              tier === t ? "bg-gradient-to-br from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25" : "surface hover:-translate-y-0.5"
+            }`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-sm font-extrabold">{t === "all" ? "All services" : COST_TIER_LABEL[t].title}</span>
+              <span className={`text-lg font-black ${tier === t ? "" : "text-muted"}`}>{tierCount(t)}</span>
+            </span>
+            <span className={`mt-1 block text-xs ${tier === t ? "text-white/80" : "text-muted"}`}>
+              {t === "all" ? "Every tool and downloader on the site" : COST_TIER_LABEL[t].description}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <Panel
         title="Services"
         action={
@@ -177,6 +210,12 @@ export default function ServiceManager({ rows }: { rows: ServiceRow[] }) {
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-2">
                           <span className={`text-sm font-bold ${on ? "" : "text-muted line-through"}`}>{r.name}</span>
+                          {tier === "all" && (
+                            <Badge tone={r.tier === "paid" ? "warn" : r.tier === "free-api" ? "muted" : "ok"}>
+                              {COST_TIER_LABEL[r.tier].short}
+                            </Badge>
+                          )}
+                          {r.paused && on && <Badge tone="bad">limit reached · paused</Badge>}
                           {dirty && (
                             <span className="rounded-md bg-brand-500/15 px-1.5 py-0.5 text-[10px] font-bold text-brand-400">
                               unsaved

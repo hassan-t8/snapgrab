@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Check, Copy, RotateCcw, Trash2 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
+import { trackEvent } from "@/lib/track-event";
 
 /* ------------------------------------------------------------------ *
  * pure transforms — no state, easy to reason about and to test
@@ -75,6 +76,7 @@ function CopyButton({ value, label = "Copy" }: { value: string; label?: string }
       type="button"
       disabled={!value}
       onClick={async () => {
+        trackEvent("copy");
         try {
           await navigator.clipboard.writeText(value);
         } catch {

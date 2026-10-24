@@ -88,7 +88,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       { ok: false, error: message, code: isProvider ? err.code : "INTERNAL" },
-      { status: isProvider && err.code === "UNSUPPORTED" ? 400 : 502 },
+      {
+        status:
+          isProvider && (err.code === "UNSUPPORTED" || err.code === "BAD_URL")
+            ? 400
+            : isProvider && err.code === "QUOTA_EXCEEDED"
+              ? 503
+              : 502,
+      },
     );
   }
 }

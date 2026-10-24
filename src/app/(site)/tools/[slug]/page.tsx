@@ -6,14 +6,23 @@ import ImageStudio from "@/components/tools/ImageStudio";
 import PdfStudio from "@/components/tools/PdfStudio";
 import TextStudio from "@/components/tools/TextStudio";
 import GeneratorStudio from "@/components/tools/GeneratorStudio";
+import CalculatorStudio from "@/components/tools/CalculatorStudio";
+import PassportPhotoStudio from "@/components/tools/PassportPhotoStudio";
+import PdfPagesStudio from "@/components/tools/PdfPagesStudio";
+import InvoiceStudio from "@/components/tools/InvoiceStudio";
+import CvStudio from "@/components/tools/CvStudio";
 import Downloader from "@/components/Downloader";
 import AdSlot from "@/components/AdSlot";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
-import { TOOLS, TOOL_MAP, relatedTools } from "@/lib/tools";
+import { TOOLS, TOOL_CATEGORIES, TOOL_MAP, relatedTools } from "@/lib/tools";
+import { ToolIcon } from "@/lib/tool-icons";
+import { ToolSearchBox } from "@/components/ToolSearch";
 import { breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
 import { getEnabledTools, getServiceState } from "@/lib/services";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
+import QuotaPaused from "@/components/QuotaPaused";
+import { getQuotaState } from "@/lib/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +43,7 @@ export async function generateMetadata({ params }: PageProps<"/tools/[slug]">): 
   const image = ogImage({ title: tool.name, subtitle: tool.tagline, badge: `${tool.category} tool` });
 
   return {
-    title: tool.headline,
+    title: tool.title ?? tool.headline,
     description: tool.description,
     keywords: tool.keywords,
     alternates: { canonical: `/tools/${tool.slug}` },
@@ -76,8 +85,21 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
     );
   }
 
-  const enabledSlugs = new Set((await getEnabledTools()).map((t) => t.slug));
-  const related = relatedTools(tool).filter((r) => enabledSlugs.has(r.slug));
+  const enabledTools = await getEnabledTools();
+  const enabledSlugs = new Set(enabledTools.map((t) => t.slug));
+  // hand-picked related tools first, topped up from the same category so there are always a few
+  const related = [
+    ...relatedTools(tool).filter((r) => enabledSlugs.has(r.slug)),
+    ...enabledTools.filter((t) => t.category === tool.category && t.slug !== tool.slug && !tool.related.includes(t.slug)),
+  ].slice(0, 8);
+  const others = TOOL_CATEGORIES.map((c) => ({
+    category: c,
+    tools: enabledTools.filter((t) => t.category === c && t.slug !== tool.slug && !related.some((r) => r.slug === t.slug)),
+  })).filter((g) => g.tools.length);
+
+  // the API behind this tool has used its allowance: keep the page, pause the tool
+  const quota = tool.provider ? await getQuotaState(tool.provider) : null;
+  const paused = quota && !quota.available ? quota : null;
 
   return (
     <>
@@ -106,6 +128,13 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
 
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
+            <span
+              className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl text-white"
+              style={{ background: tool.color, boxShadow: `0 14px 36px -12px ${tool.color}` }}
+              aria-hidden
+            >
+              <ToolIcon tool={tool} className="h-8 w-8" />
+            </span>
             <span
               className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold"
               style={{ background: `${tool.color}1f`, color: tool.color }}
@@ -141,15 +170,33 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
           </Reveal>
         </div>
 
-        <div className="mx-auto mt-10 max-w-3xl">
-          {tool.engine === "image" ? (
+        <div id="tool-app" className="mx-auto mt-10 max-w-3xl scroll-mt-24">
+          {paused ? (
+            <QuotaPaused
+              name={tool.name}
+              resetsAt={paused.resetsAt}
+              alternatives={enabledTools
+                .filter((t) => t.slug !== tool.slug && !t.provider)
+                .filter((t) => tool.related.includes(t.slug) || t.category === tool.category)
+                .slice(0, 4)
+                .map((t) => ({ href: `/tools/${t.slug}`, label: t.name, sub: t.tagline, color: t.color }))}
+            />
+          ) : tool.engine === "image" ? (
             <ImageStudio tool={tool} />
+          ) : tool.engine === "photo" ? (
+            <PassportPhotoStudio tool={tool} />
+          ) : tool.engine === "pdf-pages" ? (
+            <PdfPagesStudio tool={tool} />
+          ) : tool.engine === "doc" ? (
+            tool.mode === "cv" ? <CvStudio tool={tool} /> : <InvoiceStudio tool={tool} />
           ) : tool.engine === "pdf" ? (
             <PdfStudio tool={tool} />
           ) : tool.engine === "text" ? (
             <TextStudio tool={tool} />
           ) : tool.engine === "generate" ? (
             <GeneratorStudio tool={tool} />
+          ) : tool.engine === "calc" ? (
+            <CalculatorStudio tool={tool} />
           ) : (
             <Downloader
               only={tool.engine === "link-audio" ? "audio" : undefined}
@@ -187,7 +234,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
         </div>
       </section>
 
-      {["image", "pdf", "text", "generate"].includes(tool.engine) && (
+      {!tool.provider && !tool.engine.startsWith("link-") && (
         <section className="px-4 pb-6 sm:px-6 lg:px-8">
           <Reveal className="mx-auto max-w-4xl">
             <div className="flex items-start gap-3 rounded-2xl border border-accent-500/30 bg-accent-500/5 p-6">
@@ -214,21 +261,58 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
       {related.length > 0 && (
         <section className="px-4 pb-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-6xl">
-            <SectionHead eyebrow="More tools" title="You might also need" center={false} />
+            <SectionHead eyebrow="Similar tools" title="You might also need" center={false} />
             <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {related.map((r) => (
-                <Link
-                  key={r.slug}
-                  href={`/tools/${r.slug}`}
-                  className="group flex items-center gap-3 rounded-2xl surface p-4 transition-all hover:-translate-y-1 hover:border-brand-400/40"
-                >
-                  <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ background: r.color }} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold">{r.name}</span>
-                    <span className="block truncate text-xs text-muted">{r.tagline}</span>
-                  </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-brand-400" />
-                </Link>
+                
+                  <Link
+                    key={r.slug}
+                    href={`/tools/${r.slug}`}
+                    className="group flex min-w-0 items-center gap-3 rounded-2xl surface p-4 transition-all hover:-translate-y-1 hover:border-brand-400/40"
+                  >
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: r.color }}>
+                      <ToolIcon tool={r} className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold">{r.name}</span>
+                      <span className="block truncate text-xs text-muted">{r.tagline}</span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-brand-400" />
+                  </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {others.length > 0 && (
+        <section className="px-4 pb-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl rounded-3xl surface p-5 sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-brand-400">More free tools</p>
+                <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Everything else on SnapGrab</h2>
+              </div>
+              <ToolSearchBox className="w-full sm:max-w-xs" placeholder="Search tools…" />
+            </div>
+            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {others.map((g) => (
+                <div key={g.category}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{g.category}</h3>
+                  <ul className="mt-2 space-y-0.5">
+                    {g.tools.map((t) => (
+                        <li key={t.slug}>
+                          <Link
+                            href={`/tools/${t.slug}`}
+                            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-brand-500/10 hover:text-brand-400"
+                          >
+                            <ToolIcon tool={t} className="h-4 w-4 shrink-0" style={{ color: t.color }} />
+                            {t.name}
+                          </Link>
+                        </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
             </div>
           </div>
@@ -242,7 +326,14 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
             name: tool.name,
             description: tool.description,
             url: `/tools/${tool.slug}`,
-            category: tool.category === "Image" ? "DesignApplication" : "MultimediaApplication",
+            category:
+              tool.category === "Image"
+                ? "DesignApplication"
+                : tool.category === "Calculators"
+                  ? "FinanceApplication"
+                  : tool.category === "Audio" || tool.category === "Video"
+                    ? "MultimediaApplication"
+                    : "UtilitiesApplication",
           }),
           howToJsonLd(`How to use the ${tool.name}`, tool.steps),
           faqJsonLd(tool.faqs),

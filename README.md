@@ -457,4 +457,4 @@ SnapGrab hosts no media and only processes publicly accessible links. Users are 
 
 Not affiliated with YouTube, Meta, TikTok, X, Pinterest, Reddit, Snapchat, LinkedIn, Vimeo, Dailymotion, SoundCloud or Twitch. All trademarks belong to their respective owners.
 
-Licensed under the [MIT License](LICENSE).
+Proprietary — © Nikamynumlians. See [LICENSE](LICENSE).

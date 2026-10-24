@@ -15,6 +15,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
+import { trackEvent } from "@/lib/track-event";
 import { formatBytes } from "./ImageStudio";
 
 type Item = {
@@ -40,6 +41,9 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
   const [range, setRange] = useState("");
   const [splitAll, setSplitAll] = useState(false);
   const [angle, setAngle] = useState<90 | 180 | 270>(90);
+  const [numPos, setNumPos] = useState<"bottom-center" | "bottom-right" | "bottom-left" | "top-right">("bottom-center");
+  const [numFormat, setNumFormat] = useState<"n" | "page-n" | "n-of-total">("n");
+  const [startAt, setStartAt] = useState("1");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function addFiles(list: FileList | File[]) {
@@ -141,6 +145,28 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
         }
       }
 
+      if (mode === "page-numbers") {
+        const { StandardFonts, rgb } = await import("pdf-lib");
+        const item = items[0];
+        const doc = await PDFDocument.load(await item.file.arrayBuffer());
+        const font = await doc.embedFont(StandardFonts.Helvetica);
+        const pages = doc.getPages();
+        const first = Math.max(0, Math.floor(Number(startAt)) || 1);
+        const last = first + pages.length - 1;
+        const size = 11;
+        pages.forEach((page, i) => {
+          const n = first + i;
+          const label = numFormat === "page-n" ? `Page ${n}` : numFormat === "n-of-total" ? `${n} of ${last}` : String(n);
+          const { width, height } = page.getSize();
+          const w = font.widthOfTextAtSize(label, size);
+          const margin = 28;
+          const x = numPos === "bottom-left" ? margin : numPos === "bottom-center" ? (width - w) / 2 : width - margin - w;
+          const y = numPos === "top-right" ? height - margin : margin - size / 2;
+          page.drawText(label, { x, y, size, font, color: rgb(0.2, 0.2, 0.2) });
+        });
+        produced.push(publish(item.file.name.replace(/\.pdf$/i, "") + "-numbered.pdf", await doc.save()));
+      }
+
       if (mode === "rotate") {
         const item = items[0];
         const doc = await PDFDocument.load(await item.file.arrayBuffer());
@@ -178,7 +204,7 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
     setRange("");
   }
 
-  const single = mode === "split" || mode === "rotate";
+  const single = mode === "split" || mode === "rotate" || mode === "page-numbers";
   const totalPages = items[0]?.pages;
 
   return (
@@ -286,6 +312,45 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
             </div>
           )}
 
+          {mode === "page-numbers" && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold">Position</span>
+                <select
+                  value={numPos}
+                  onChange={(e) => setNumPos(e.target.value as typeof numPos)}
+                  className="w-full rounded-xl surface px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+                >
+                  <option value="bottom-center">Bottom centre</option>
+                  <option value="bottom-right">Bottom right</option>
+                  <option value="bottom-left">Bottom left</option>
+                  <option value="top-right">Top right</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold">Format</span>
+                <select
+                  value={numFormat}
+                  onChange={(e) => setNumFormat(e.target.value as typeof numFormat)}
+                  className="w-full rounded-xl surface px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+                >
+                  <option value="n">1, 2, 3</option>
+                  <option value="page-n">Page 1, Page 2</option>
+                  <option value="n-of-total">1 of 10</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold">Start at</span>
+                <input
+                  inputMode="numeric"
+                  value={startAt}
+                  onChange={(e) => setStartAt(e.target.value)}
+                  className="w-full rounded-xl surface px-4 py-2.5 text-sm outline-none focus:border-brand-400"
+                />
+              </label>
+            </div>
+          )}
+
           <div className="mt-5 flex flex-wrap gap-2">
             <motion.button
               type="button"
@@ -304,7 +369,9 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
                     ? "Split PDF"
                     : mode === "rotate"
                       ? `Rotate ${angle}°`
-                      : "Create PDF"}
+                      : mode === "page-numbers"
+                        ? "Add page numbers"
+                        : "Create PDF"}
             </motion.button>
 
             {items.length > 0 && (
@@ -388,6 +455,7 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
                   <a
                     href={o.url}
                     download={o.name}
+                    onClick={() => trackEvent("download")}
                     className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 px-4 py-2 text-sm font-bold text-white"
                   >
                     <Download className="h-4 w-4" />

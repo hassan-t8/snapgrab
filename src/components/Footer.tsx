@@ -4,6 +4,18 @@ import { BrandGithub, BrandInstagram, BrandX } from "./BrandIcons";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import Newsletter from "./Newsletter";
 
+// the tools people search for most, shown first in the footer
+const POPULAR_TOOLS = [
+  "currency-converter",
+  "image-compressor",
+  "passport-photo-maker",
+  "merge-pdf",
+  "salary-tax-calculator-pakistan",
+  "cv-maker",
+  "prayer-times",
+  "qr-code-generator",
+];
+
 export default async function Footer() {
   const year = new Date().getFullYear();
   const [TOOLS, PLATFORMS] = await Promise.all([getEnabledTools(), getEnabledPlatforms()]);
@@ -23,8 +35,8 @@ export default async function Footer() {
               </span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-              A fast, ad-light downloader for the videos, reels and audio you are allowed to keep. No signup, no
-              software, no watermarks.
+              Free online tools for images, PDFs, documents, money and daily life — plus a fast media downloader. No
+              signup, no software, and most tools run right in your browser.
             </p>
             <div className="mt-5 flex gap-2">
               {[
@@ -53,7 +65,10 @@ export default async function Footer() {
 
           <FooterCol
             title="Free tools"
-            links={TOOLS.slice(0, 7).map((t) => ({ href: `/tools/${t.slug}`, label: t.name }))}
+            links={[...POPULAR_TOOLS.map((s) => TOOLS.find((t) => t.slug === s)).filter((t) => t !== undefined), ...TOOLS]
+              .filter((t, i, all) => all.indexOf(t) === i)
+              .slice(0, 8)
+              .map((t) => ({ href: `/tools/${t.slug}`, label: t.name }))}
           />
 
           <FooterCol
@@ -84,7 +99,9 @@ export default async function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[var(--line)] pt-6 text-xs text-muted sm:flex-row">
-          <p>© {year} SnapGrab. All rights reserved.</p>
+          <p>
+            © {year} SnapGrab by <span className="font-semibold text-[var(--fg)]">Nikamynumlians</span>. All rights reserved.
+          </p>
           <p className="flex items-center gap-1.5">
             <Mail className="h-3.5 w-3.5" />
             <a href="mailto:support@snapgrab.app" className="hover:text-brand-400">

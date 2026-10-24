@@ -1,6 +1,8 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PageTracker from "@/components/PageTracker";
+import ClickTracker from "@/components/ClickTracker";
+import ToolSearch from "@/components/ToolSearch";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import { getEnabledSummary } from "@/lib/services";
 
@@ -22,6 +24,9 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       </main>
       <Footer />
       <PageTracker />
+      <ClickTracker />
+      {/* outside the sticky header: its backdrop-filter would trap a fixed overlay */}
+      <ToolSearch services={services} />
     </>
   );
 }

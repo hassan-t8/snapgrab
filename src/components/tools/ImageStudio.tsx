@@ -16,6 +16,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
+import { trackEvent } from "@/lib/track-event";
 
 type OutputMime = "image/jpeg" | "image/png" | "image/webp";
 
@@ -334,6 +335,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
   }
 
   function downloadAll() {
+    trackEvent("download-all");
     jobs
       .filter((j) => j.status === "done" && j.outUrl)
       .forEach((j, i) => {
@@ -567,6 +569,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
                     <button
                       type="button"
                       onClick={async () => {
+                        trackEvent("copy");
                         try {
                           await navigator.clipboard.writeText(row.value);
                         } catch {
@@ -663,6 +666,7 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
                     <a
                       href={job.outUrl}
                       download={job.outName}
+                      onClick={() => trackEvent("download")}
                       className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 px-4 py-2 text-sm font-bold text-white"
                     >
                       <Download className="h-4 w-4" />

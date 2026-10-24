@@ -8,7 +8,9 @@ import {
   Eye,
   Gauge,
   Mail,
+  MousePointerClick,
   Users,
+  Wrench,
   Zap,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -24,11 +26,13 @@ import { Badge, EmptyRow, Panel, StatCard } from "@/components/admin/ui";
 import { DonutChart, PlatformChart, TrafficChart } from "@/components/admin/Charts";
 import { isDemoMode } from "@/lib/provider";
 import { mailerConfigured } from "@/lib/mailer";
+import { getQuotaStates } from "@/lib/quota";
+import { daysAgo } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [o, series, platforms, countries, devices, pages, recent] = await Promise.all([
+  const [o, series, platforms, countries, devices, pages, recent, quotas, clicks7d, toolRuns7d] = await Promise.all([
     getOverview(),
     getTimeSeries(14),
     getPlatformBreakdown(),
@@ -36,6 +40,9 @@ export default async function AdminDashboard() {
     getDeviceBreakdown(),
     getTopPages(),
     prisma.download.findMany({ take: 8, orderBy: { createdAt: "desc" } }),
+    getQuotaStates(),
+    prisma.event.count({ where: { createdAt: { gte: daysAgo(7) } } }).catch(() => 0),
+    prisma.toolUsage.count({ where: { createdAt: { gte: daysAgo(7) } } }).catch(() => 0),
   ]);
 
   const health = [
@@ -46,6 +53,17 @@ export default async function AdminDashboard() {
       ok: Boolean(process.env.NEXT_PUBLIC_ADSENSE_CLIENT),
       note: process.env.NEXT_PUBLIC_ADSENSE_CLIENT ? "Live" : "Placeholder slots",
     },
+    ...Object.values(quotas).map((q) => ({
+      label: q.label,
+      ok: q.available && !q.exhausted,
+      note: q.exhausted
+        ? q.forceEnabled
+          ? "Limit reached — force-enabled"
+          : "Paused — limit reached, renews " + q.resetsAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+        : q.limit != null
+          ? (q.remaining ?? 0).toLocaleString() + " of " + q.limit.toLocaleString() + " calls left this " + q.period
+          : q.used.toLocaleString() + " calls this " + q.period,
+    })),
   ];
 
   return (
@@ -99,7 +117,7 @@ export default async function AdminDashboard() {
                     <p className="text-sm font-semibold">{h.label}</p>
                     <p className="truncate text-xs text-muted">{h.note}</p>
                   </div>
-                  <Badge tone={h.ok ? "ok" : "warn"}>{h.ok ? "OK" : "Setup"}</Badge>
+                  <Badge tone={h.ok ? "ok" : "warn"}>{h.ok ? "OK" : h.note.startsWith("Paused") || h.note.startsWith("Limit") ? "Limit" : "Setup"}</Badge>
                 </div>
               ))}
             </div>
@@ -109,6 +127,8 @@ export default async function AdminDashboard() {
             <StatCard label="API calls (30d)" value={o.apiCalls30d.toLocaleString()} icon={<Activity />} sub={`${o.apiFailed30d} failed`} />
             <StatCard label="Cache hit rate" value={`${o.cacheHitRate}%`} icon={<Zap />} tone="accent" sub="Saved API quota" />
             <StatCard label="Avg latency" value={`${o.avgLatency}ms`} icon={<Gauge />} tone="amber" sub="Upstream only" />
+            <StatCard label="Clicks (7d)" value={clicks7d.toLocaleString()} icon={<MousePointerClick />} tone="accent" sub="Downloads, copies, outbound" />
+            <StatCard label="Tool runs (7d)" value={toolRuns7d.toLocaleString()} icon={<Wrench />} sub="Across all free tools" />
             <StatCard label="Unread messages" value={o.unhandled} icon={<Mail />} tone={o.unhandled ? "red" : "brand"} sub={`${o.messages} total`} />
           </div>
         </div>

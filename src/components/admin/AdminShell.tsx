@@ -12,6 +12,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  MousePointerClick,
   Mail,
   Menu,
   Settings,
@@ -28,11 +29,12 @@ const NAV = [
   { href: "/admin/downloads", label: "Downloads", icon: Download },
   { href: "/admin/visitors", label: "Visitors", icon: Users },
   { href: "/admin/tools", label: "Tools usage", icon: Wrench },
+  { href: "/admin/events", label: "Clicks & events", icon: MousePointerClick },
   { href: "/admin/api-usage", label: "API usage", icon: Activity },
   { href: "/admin/blogs", label: "Blog posts", icon: FileText },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/subscribers", label: "Subscribers", icon: BarChart3 },
-  { href: "/admin/services", label: "Services", icon: ToggleLeft },
+  { href: "/admin/services", label: "Services & API limits", icon: ToggleLeft },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

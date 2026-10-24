@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Tool } from "@/lib/tools";
+import { trackEvent } from "@/lib/track-event";
 
 /* ------------------------------------------------------------------ *
  * helpers
@@ -107,6 +108,22 @@ function loremParagraph(i: number, seed: number) {
   return Array.from({ length: 4 + ((i + seed) % 3) }, (_, j) => loremSentence(i * 4 + j, seed)).join(" ");
 }
 
+/* ------------------------------ QR payloads ------------------------------ */
+
+const QR_MODES = ["qr", "wifi-qr", "whatsapp", "vcard-qr"];
+
+/** Escape the characters the WIFI: and vCard formats treat as separators. */
+const escWifi = (v: string) => v.replace(/([\\;,:"])/g, "\\$1");
+const escVcard = (v: string) => v.replace(/([\\;,])/g, "\\$1").replace(/\n/g, "\\n");
+
+/** wa.me wants digits only, with the country code and without a leading 0 or +. */
+function waNumber(raw: string) {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("0")) d = "92" + d.slice(1); // local Pakistani format, e.g. 0300…
+  return d;
+}
+
 /* ------------------------------------------------------------------ */
 
 function CopyBtn({ value, className = "" }: { value: string; className?: string }) {
@@ -116,6 +133,7 @@ function CopyBtn({ value, className = "" }: { value: string; className?: string 
       type="button"
       disabled={!value}
       onClick={async () => {
+        trackEvent("copy");
         try {
           await navigator.clipboard.writeText(value);
         } catch {
@@ -190,11 +208,43 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
   const [qrSvg, setQrSvg] = useState("");
   const [qrError, setQrError] = useState<string | null>(null);
 
+  const [wifi, setWifi] = useState({ ssid: "", password: "", security: "WPA", hidden: false });
+  const [wa, setWa] = useState({ phone: "", message: "" });
+  const [card, setCard] = useState({ name: "", phone: "", email: "", org: "", title: "", url: "" });
+
+  const waLink = useMemo(() => {
+    const n = waNumber(wa.phone);
+    if (!n) return "";
+    return `https://wa.me/${n}${wa.message.trim() ? `?text=${encodeURIComponent(wa.message.trim())}` : ""}`;
+  }, [wa]);
+
+  /** What actually gets encoded into the QR code for the current mode. */
+  const qrPayload = useMemo(() => {
+    if (mode === "wifi-qr") {
+      if (!wifi.ssid.trim()) return "";
+      const pass = wifi.security === "nopass" ? "" : `P:${escWifi(wifi.password)};`;
+      return `WIFI:T:${wifi.security};S:${escWifi(wifi.ssid)};${pass}${wifi.hidden ? "H:true;" : ""};`;
+    }
+    if (mode === "whatsapp") return waLink;
+    if (mode === "vcard-qr") {
+      if (!card.name.trim()) return "";
+      const lines = ["BEGIN:VCARD", "VERSION:3.0", `FN:${escVcard(card.name.trim())}`, `N:${escVcard(card.name.trim())};;;;`];
+      if (card.org.trim()) lines.push(`ORG:${escVcard(card.org.trim())}`);
+      if (card.title.trim()) lines.push(`TITLE:${escVcard(card.title.trim())}`);
+      if (card.phone.trim()) lines.push(`TEL;TYPE=CELL:${card.phone.trim()}`);
+      if (card.email.trim()) lines.push(`EMAIL:${card.email.trim()}`);
+      if (card.url.trim()) lines.push(`URL:${card.url.trim()}`);
+      lines.push("END:VCARD");
+      return lines.join("\n");
+    }
+    return qrText;
+  }, [mode, wifi, waLink, card, qrText]);
+
   useEffect(() => {
-    if (mode !== "qr") return;
+    if (!QR_MODES.includes(mode)) return;
     let cancelled = false;
     const t = setTimeout(async () => {
-      if (!qrText.trim()) {
+      if (!qrPayload.trim()) {
         setQrPng("");
         setQrSvg("");
         return;
@@ -203,8 +253,8 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
         const QR = (await import("qrcode")).default;
         const opts = { width: qrSize, margin: 2, color: { dark: qrDark, light: "#ffffff" } };
         const [png, svg] = await Promise.all([
-          QR.toDataURL(qrText, opts),
-          QR.toString(qrText, { ...opts, type: "svg" as const }),
+          QR.toDataURL(qrPayload, opts),
+          QR.toString(qrPayload, { ...opts, type: "svg" as const }),
         ]);
         if (cancelled) return;
         setQrPng(png);
@@ -218,7 +268,7 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [qrText, qrSize, qrDark, mode]);
+  }, [qrPayload, qrSize, qrDark, mode]);
 
   /* ---------------- color ---------------- */
   const [hex, setHex] = useState("#7048f0");
@@ -263,6 +313,80 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
     entropy >= 90 ? "text-accent-400" : entropy >= 60 ? "text-brand-400" : entropy >= 40 ? "text-amber-400" : "text-red-400";
 
   const field = "w-full rounded-xl surface px-4 py-2.5 text-sm outline-none transition-all focus:border-brand-400";
+
+  /** Size, colour, preview and downloads — shared by every QR mode. */
+  const qrOutput = (
+    <>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 flex items-center justify-between text-sm font-semibold">
+              Size <span className="font-mono text-brand-400">{qrSize}px</span>
+            </span>
+            <input
+              type="range"
+              min={128}
+              max={1024}
+              step={64}
+              value={qrSize}
+              onChange={(e) => setQrSize(Number(e.target.value))}
+              className="w-full accent-[var(--color-brand-500)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold">Foreground colour</span>
+            <span className="flex items-center gap-2">
+              <input
+                type="color"
+                value={qrDark}
+                onChange={(e) => setQrDark(e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
+              />
+              <input value={qrDark} onChange={(e) => setQrDark(e.target.value)} className={`${field} font-mono`} />
+            </span>
+          </label>
+        </div>
+      
+        {qrError && <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{qrError}</p>}
+      
+        {qrPng && (
+          <div className="mt-5 flex flex-col items-center gap-4">
+            <motion.div
+              key={qrPng.slice(-20)}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="rounded-2xl bg-white p-4 shadow-xl"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrPng} alt="Generated QR code" width={220} height={220} className="h-[220px] w-[220px]" />
+            </motion.div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <a
+                href={qrPng}
+                download="snapgrab-qr.png"
+                onClick={() => {
+                  track();
+                  trackEvent("download", "qr-png");
+                }}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 px-5 py-2.5 text-sm font-bold text-white"
+              >
+                <Download className="h-4 w-4" /> PNG
+              </a>
+              <a
+                href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                download="snapgrab-qr.svg"
+                onClick={() => {
+                  track();
+                  trackEvent("download", "qr-svg");
+                }}
+                className="flex items-center gap-2 rounded-xl surface px-5 py-2.5 text-sm font-bold transition-colors hover:border-brand-400/60"
+              >
+                <Download className="h-4 w-4" /> SVG
+              </a>
+            </div>
+          </div>
+        )}
+    </>
+  );
 
   return (
     <div id="tool" className="scroll-mt-24">
@@ -427,68 +551,120 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
                 </span>
               </label>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {qrOutput}
+            </>
+          )}
+
+          {/* ======================= WIFI QR ======================= */}
+          {mode === "wifi-qr" && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 flex items-center justify-between text-sm font-semibold">
-                    Size <span className="font-mono text-brand-400">{qrSize}px</span>
-                  </span>
+                  <span className="mb-1.5 block text-sm font-semibold">WiFi name (SSID)</span>
+                  <input value={wifi.ssid} onChange={(e) => setWifi((w) => ({ ...w, ssid: e.target.value }))} placeholder="MyHome WiFi" className={field} />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold">Password</span>
                   <input
-                    type="range"
-                    min={128}
-                    max={1024}
-                    step={64}
-                    value={qrSize}
-                    onChange={(e) => setQrSize(Number(e.target.value))}
-                    className="w-full accent-[var(--color-brand-500)]"
+                    value={wifi.password}
+                    disabled={wifi.security === "nopass"}
+                    onChange={(e) => setWifi((w) => ({ ...w, password: e.target.value }))}
+                    placeholder="WiFi password"
+                    className={`${field} disabled:opacity-50`}
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold">Foreground colour</span>
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={qrDark}
-                      onChange={(e) => setQrDark(e.target.value)}
-                      className="h-10 w-14 cursor-pointer rounded-lg border border-[var(--line)] bg-transparent"
-                    />
-                    <input value={qrDark} onChange={(e) => setQrDark(e.target.value)} className={`${field} font-mono`} />
-                  </span>
+                  <span className="mb-1.5 block text-sm font-semibold">Security</span>
+                  <select value={wifi.security} onChange={(e) => setWifi((w) => ({ ...w, security: e.target.value }))} className={field}>
+                    <option value="WPA">WPA / WPA2 / WPA3 (most routers)</option>
+                    <option value="WEP">WEP (old routers)</option>
+                    <option value="nopass">No password (open network)</option>
+                  </select>
+                </label>
+                <label className="flex cursor-pointer items-center justify-between gap-3 self-end rounded-xl bg-[var(--bg-soft)] px-4 py-3">
+                  <span className="text-sm font-semibold">Hidden network</span>
+                  <input
+                    type="checkbox"
+                    checked={wifi.hidden}
+                    onChange={(e) => setWifi((w) => ({ ...w, hidden: e.target.checked }))}
+                    className="h-5 w-5 accent-[var(--color-brand-500)]"
+                  />
                 </label>
               </div>
+              {!wifi.ssid.trim() && <p className="mt-4 text-sm text-muted">Enter your WiFi name to create the QR code.</p>}
+              {qrOutput}
+            </>
+          )}
 
-              {qrError && <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{qrError}</p>}
-
-              {qrPng && (
-                <div className="mt-5 flex flex-col items-center gap-4">
-                  <motion.div
-                    key={qrPng.slice(-20)}
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-2xl bg-white p-4 shadow-xl"
+          {/* ======================= WHATSAPP ======================= */}
+          {mode === "whatsapp" && (
+            <>
+              <div className="grid gap-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold">WhatsApp number</span>
+                  <input
+                    inputMode="tel"
+                    value={wa.phone}
+                    onChange={(e) => setWa((w) => ({ ...w, phone: e.target.value }))}
+                    placeholder="923001234567 or 0300 1234567"
+                    className={field}
+                  />
+                  <span className="mt-1.5 block text-xs text-muted">Include the country code. A number starting with 0 is treated as Pakistani (92).</span>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold">Pre-filled message (optional)</span>
+                  <textarea
+                    rows={3}
+                    value={wa.message}
+                    onChange={(e) => setWa((w) => ({ ...w, message: e.target.value }))}
+                    placeholder="Hi! I'd like to know more about…"
+                    className={`${field} resize-y`}
+                  />
+                </label>
+              </div>
+              {waLink ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl surface p-3">
+                  <code className="min-w-0 flex-1 break-all font-mono text-sm">{waLink}</code>
+                  <CopyBtn value={waLink} />
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={track}
+                    className="rounded-xl bg-[#22c55e] px-4 py-2.5 text-sm font-bold text-white"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={qrPng} alt="Generated QR code" width={220} height={220} className="h-[220px] w-[220px]" />
-                  </motion.div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <a
-                      href={qrPng}
-                      download="snapgrab-qr.png"
-                      onClick={track}
-                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 px-5 py-2.5 text-sm font-bold text-white"
-                    >
-                      <Download className="h-4 w-4" /> PNG
-                    </a>
-                    <a
-                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                      download="snapgrab-qr.svg"
-                      onClick={track}
-                      className="flex items-center gap-2 rounded-xl surface px-5 py-2.5 text-sm font-bold transition-colors hover:border-brand-400/60"
-                    >
-                      <Download className="h-4 w-4" /> SVG
-                    </a>
-                  </div>
+                    Open chat
+                  </a>
                 </div>
+              ) : (
+                <p className="mt-4 text-sm text-muted">Enter a number to create your WhatsApp link.</p>
               )}
+              {qrOutput}
+            </>
+          )}
+
+          {/* ======================= VCARD ======================= */}
+          {mode === "vcard-qr" && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["name", "Full name *", "Hassan Talha"],
+                    ["phone", "Phone", "+92 300 1234567"],
+                    ["email", "Email", "you@example.com"],
+                    ["org", "Company", "Your company"],
+                    ["title", "Job title", "Developer"],
+                    ["url", "Website", "https://example.com"],
+                  ] as const
+                ).map(([key, label, ph]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1.5 block text-sm font-semibold">{label}</span>
+                    <input value={card[key]} onChange={(e) => setCard((c) => ({ ...c, [key]: e.target.value }))} placeholder={ph} className={field} />
+                  </label>
+                ))}
+              </div>
+              {!card.name.trim() && <p className="mt-4 text-sm text-muted">Enter at least a name to create the QR code.</p>}
+              {qrOutput}
             </>
           )}
 

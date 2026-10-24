@@ -37,7 +37,7 @@ export default function ServiceUnavailable({
                 <Link
                   key={a.href}
                   href={a.href}
-                  className="group flex items-center gap-3 rounded-2xl surface p-4 text-left transition-all hover:-translate-y-1 hover:border-brand-400/40"
+                  className="group flex min-w-0 items-center gap-3 rounded-2xl surface p-4 text-left transition-all hover:-translate-y-1 hover:border-brand-400/40"
                 >
                   <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ background: a.color ?? "var(--color-brand-500)" }} />
                   <span className="min-w-0 flex-1">

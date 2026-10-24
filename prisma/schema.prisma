@@ -191,3 +191,34 @@ model ServiceToggle {
   @@id([kind, key])
   @@index([kind])
 }
+
+/// Usage limit for an external API — a free tier or a paid plan. Tools that depend on
+/// a provider switch themselves off when its allowance runs out and back on when the
+/// period renews. An admin can force them on regardless.
+model ApiQuota {
+  provider       String    @id // key from QUOTA_PROVIDERS in src/lib/quota-providers.ts
+  limitPerPeriod Int? // null = no limit enforced (only counted)
+  period         String    @default("month") // day | month
+  used           Int       @default(0)
+  periodStart    DateTime  @default(now())
+  /// set when the upstream itself reports the allowance is gone (e.g. HTTP 429)
+  exhaustedUntil DateTime?
+  forceEnabled   Boolean   @default(false)
+  lastError      String?
+  lastCallAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+/// Clicks and interactions (download, copy, share, open …) for the admin events report
+model Event {
+  id        String   @id @default(cuid())
+  name      String
+  label     String?
+  path      String?
+  visitorId String?
+  country   String?
+  createdAt DateTime @default(now())
+
+  @@index([name])
+  @@index([createdAt])
+}
