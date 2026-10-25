@@ -64,6 +64,8 @@ ln -s "$APP/shared/.env" .env
 $NICE npm ci --no-audit --no-fund --loglevel=error || fail "npm ci"
 # SQLite file lives in shared/; without --accept-data-loss a destructive schema change fails the deploy
 $NICE npx prisma db push --skip-generate || fail "prisma db push"
+# new how-to guides from prisma/guides.ts (create-only; never overwrites admin edits)
+$NICE npx tsx prisma/seed-guides.ts || log "guide seeding skipped"
 $NICE npm run build || fail "build"
 
 PREV=$(readlink -f "$APP/current" 2>/dev/null || true)

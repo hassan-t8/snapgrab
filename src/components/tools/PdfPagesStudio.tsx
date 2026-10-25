@@ -25,6 +25,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { Tool } from "@/lib/tools";
 import { notify } from "@/components/Toaster";
 import { trackEvent } from "@/lib/track-event";
+import ShareSheet, { urlsToFiles } from "@/components/ShareSheet";
 import { formatBytes } from "./ImageStudio";
 
 /* ------------------------------------------------------------------ *
@@ -639,6 +640,15 @@ function PdfToImages({ tool }: { tool: Tool }) {
             </button>
           )}
 
+          {!rendering && results.length > 0 && (
+            <ShareSheet
+              title={tool.name}
+              text={`Made with the free ${tool.name} on SnapGrab`}
+              label={results.length > 1 ? `Share all (${results.length})` : "Share"}
+              getFiles={() => urlsToFiles(results.map((r) => ({ url: r.url, name: r.name })))}
+            />
+          )}
+
           {!rendering && results.length > 1 && (
             <button
               type="button"
@@ -1048,6 +1058,12 @@ function OrganizePages({ tool }: { tool: Tool }) {
               <Download className="h-4 w-4" /> <span className="hidden sm:inline">Download again</span>
               <span className="sr-only sm:hidden">Download again</span>
             </a>
+            <ShareSheet
+              variant="icon"
+              title={output.name}
+              text={`Made with the free ${tool.name} on SnapGrab`}
+              getFiles={() => urlsToFiles([{ url: output.url, name: output.name }])}
+            />
           </motion.div>
         )}
       </Shell>

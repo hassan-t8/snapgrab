@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { trackEvent } from "@/lib/track-event";
+import ShareSheet, { urlsToFiles } from "@/components/ShareSheet";
 
 type OutputMime = "image/jpeg" | "image/png" | "image/webp";
 
@@ -534,6 +535,15 @@ export default function ImageStudio({ tool }: { tool: Tool }) {
                         ? "Encode to Base64"
                         : `Convert to ${LABELS[target]}`}
             </motion.button>
+
+            {doneJobs.length > 0 && (
+              <ShareSheet
+                title={tool.name}
+                text={`Made with the free ${tool.name} on SnapGrab`}
+                label={doneJobs.length > 1 ? `Share all (${doneJobs.length})` : "Share"}
+                getFiles={() => urlsToFiles(doneJobs.filter((j) => j.outUrl).map((j) => ({ url: j.outUrl as string, name: j.outName as string })))}
+              />
+            )}
 
             {doneJobs.length > 1 && (
               <button

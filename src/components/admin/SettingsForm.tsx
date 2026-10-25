@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, Save } from "lucide-react";
+import { SOCIALS } from "@/lib/socials";
+import { notify } from "@/components/Toaster";
 
 export default function SettingsForm({ initial }: { initial: Record<string, string> }) {
   const router = useRouter();
@@ -21,7 +23,10 @@ export default function SettingsForm({ initial }: { initial: Record<string, stri
       headers: { "content-type": "application/json" },
       body: JSON.stringify(values),
     }).catch(() => null);
+    const json = (await res?.json().catch(() => null)) as { error?: string } | null;
     setState(res?.ok ? "saved" : "error");
+    if (res?.ok) notify.success("Settings saved");
+    else notify.error("Could not save", json?.error);
     router.refresh();
   }
 
@@ -50,6 +55,27 @@ export default function SettingsForm({ initial }: { initial: Record<string, stri
           placeholder="Leave empty to hide the banner."
         />
       </label>
+
+      <fieldset className="rounded-2xl border border-[var(--line)] p-4">
+        <legend className="px-1 text-sm font-bold">Social profiles</legend>
+        <p className="mb-3 text-xs text-muted">
+          Shown as icons in the footer and told to Google as your official profiles. Leave empty to hide an icon.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {SOCIALS.map((s) => (
+            <label key={s.key} className="block">
+              <span className="mb-1 block text-xs font-semibold">{s.label}</span>
+              <input
+                value={values[s.key] ?? ""}
+                onChange={set(s.key)}
+                placeholder={s.placeholder}
+                inputMode="url"
+                className={field}
+              />
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="flex items-center gap-3">
         <motion.button

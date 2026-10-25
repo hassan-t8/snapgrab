@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Panel } from "@/components/admin/ui";
 import { getIntegrationViews } from "@/lib/integrations";
+import { SOCIALS } from "@/lib/socials";
 import SettingsForm from "@/components/admin/SettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ export default async function SettingsPage() {
             site_tagline: map.site_tagline ?? "",
             contact_email: map.contact_email ?? "",
             announcement: map.announcement ?? "",
+            ...Object.fromEntries(SOCIALS.map((s) => [s.key, map[s.key] ?? ""])),
           }}
         />
       </Panel>

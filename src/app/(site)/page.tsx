@@ -17,6 +17,7 @@ import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import { jsonLd, faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettings } from "@/lib/site-settings";
 import { ToolIcon } from "@/lib/tool-icons";
 import { ToolSearchBox } from "@/components/ToolSearch";
 
@@ -81,7 +82,7 @@ async function getStats() {
 }
 
 export default async function HomePage() {
-  const [s, TOOLS, livePlatforms] = await Promise.all([getStats(), getEnabledTools(), getEnabledPlatforms()]);
+  const [s, TOOLS, livePlatforms, siteSettings] = await Promise.all([getStats(), getEnabledTools(), getEnabledPlatforms(), getSiteSettings()]);
 
   return (
     <>
@@ -291,7 +292,7 @@ export default async function HomePage() {
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={jsonLd(organizationJsonLd(), websiteJsonLd(), faqJsonLd(HOME_FAQ))}
+        dangerouslySetInnerHTML={jsonLd(organizationJsonLd({ email: siteSettings.contactEmail, sameAs: Object.values(siteSettings.socials) }), websiteJsonLd(), faqJsonLd(HOME_FAQ))}
       />
     </>
   );

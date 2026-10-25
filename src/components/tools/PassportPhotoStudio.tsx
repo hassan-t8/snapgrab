@@ -14,6 +14,7 @@ import {
   Palette,
   Printer,
   RotateCcw,
+  Scissors,
   ShieldCheck,
   Sun,
   Trash2,
@@ -23,7 +24,22 @@ import {
 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { notify } from "@/components/Toaster";
+import ShareSheet, { blobToFile, canvasToFile } from "@/components/ShareSheet";
 import { trackEvent } from "@/lib/track-event";
+import {
+  DPI,
+  PAPERS,
+  PAPER_MAP,
+  PRINT_TIPS,
+  drawCropMarks,
+  drawCutLine,
+  mmToPx,
+  pagesToPdf,
+  paperCanvas,
+  printPages,
+  type Paper,
+  type PrintPage,
+} from "@/lib/print";
 import { formatBytes } from "./ImageStudio";
 
 /* ------------------------------------------------------------------ *
@@ -31,9 +47,6 @@ import { formatBytes } from "./ImageStudio";
  * ------------------------------------------------------------------ */
 
 const field = "w-full rounded-xl surface px-4 py-2.5 text-sm outline-none transition-all focus:border-brand-400";
-
-const DPI = 300;
-const mmToPx = (mm: number) => Math.round((mm / 25.4) * DPI);
 
 type PresetKey = "pk" | "uk" | "us" | "ca" | "custom";
 
@@ -102,22 +115,34 @@ const BACKGROUNDS = [
   { key: "grey", label: "Light grey", value: "#e7e7e7" },
 ] as const;
 
-type SheetKey = "4x6" | "a4";
+/** 2 mm between copies — room for a clean cut with scissors or a trimmer. */
+const GAP_MM = 2;
+/** keep clear of the unprintable edge of home printers; photo paper is often printed (near) borderless */
+const marginFor = (p: Paper) => (Math.min(p.w, p.h) <= 130 ? 3 : 6);
 
-const SHEETS: Record<SheetKey, { label: string; w: number; h: number; wPt: number; hPt: number; margin: number }> = {
-  "4x6": { label: "4 × 6 in photo paper", w: 1200, h: 1800, wPt: 288, hPt: 432, margin: 36 },
-  a4: { label: "A4 paper", w: 2480, h: 3508, wPt: 595.28, hPt: 841.89, margin: 118 },
-};
+type Guides = "none" | "cut" | "marks";
+const GUIDES: { key: Guides; label: string }[] = [
+  { key: "cut", label: "Dashed cut lines" },
+  { key: "marks", label: "Corner crop marks" },
+  { key: "none", label: "No guides" },
+];
 
-/** 1.5 mm between copies at 300 DPI — leaves room for a clean cut. */
-const GAP = 18;
+type CountPick = "4" | "6" | "8" | "12" | "fill" | "custom";
+const COUNT_PICKS: { key: CountPick; label: string }[] = [
+  { key: "4", label: "4" },
+  { key: "6", label: "6" },
+  { key: "8", label: "8" },
+  { key: "12", label: "12" },
+  { key: "fill", label: "Fill the page" },
+  { key: "custom", label: "Custom" },
+];
 
 type View = { zoom: number; fx: number; fy: number };
 const DEFAULT_VIEW: View = { zoom: 1, fx: 0, fy: 0 };
 
 type Source = { file: File; url: string; img: HTMLImageElement; width: number; height: number };
 
-type Busy = null | "photo" | "sheet-jpg" | "sheet-pdf";
+type Busy = null | "photo" | "sheet-jpg" | "sheet-pdf" | "print";
 
 /* ------------------------------------------------------------------ *
  * helpers
@@ -187,16 +212,66 @@ function renderPhoto(src: Source, W: number, H: number, view: View, bg: string, 
   return out;
 }
 
-function layoutSheet(key: SheetKey, pw: number, ph: number) {
-  const sheet = SHEETS[key];
-  const fit = (W: number, H: number) => {
-    const cols = Math.max(0, Math.floor((W - 2 * sheet.margin + GAP) / (pw + GAP)));
-    const rows = Math.max(0, Math.floor((H - 2 * sheet.margin + GAP) / (ph + GAP)));
-    return { W, H, cols, rows, count: cols * rows };
+/** 300-DPI pixel position of a millimetre value (unrounded). */
+const P = (mm: number) => (mm / 25.4) * DPI;
+
+type Grid = { landscape: boolean; wMm: number; hMm: number; cols: number; rows: number; capacity: number };
+
+/** The portrait or landscape grid that fits the most copies of a w × h mm photo on the paper. */
+function bestGrid(paper: Paper, w: number, h: number): Grid {
+  const margin = marginFor(paper);
+  const fit = (W: number, H: number, landscape: boolean): Grid => {
+    const cols = Math.max(0, Math.floor((W - 2 * margin + GAP_MM + 1e-6) / (w + GAP_MM)));
+    const rows = Math.max(0, Math.floor((H - 2 * margin + GAP_MM + 1e-6) / (h + GAP_MM)));
+    return { landscape, wMm: W, hMm: H, cols, rows, capacity: cols * rows };
   };
-  const portrait = fit(sheet.w, sheet.h);
-  const landscape = fit(sheet.h, sheet.w);
-  return landscape.count > portrait.count ? { ...landscape, landscape: true } : { ...portrait, landscape: false };
+  const portrait = fit(paper.w, paper.h, false);
+  const landscape = fit(paper.h, paper.w, true);
+  return landscape.capacity > portrait.capacity ? landscape : portrait;
+}
+
+/** Top-left corners (mm) of n copies in a balanced block centred on the page. */
+function placeCopies(g: Grid, n: number, w: number, h: number) {
+  if (n < 1 || !g.cols) return [];
+  const rows = Math.ceil(n / g.cols);
+  const cols = Math.ceil(n / rows);
+  const x0 = (g.wMm - (cols * w + (cols - 1) * GAP_MM)) / 2;
+  const y0 = (g.hMm - (rows * h + (rows - 1) * GAP_MM)) / 2;
+  return Array.from({ length: n }, (_, i) => ({
+    x: x0 + (i % cols) * (w + GAP_MM),
+    y: y0 + Math.floor(i / cols) * (h + GAP_MM),
+  }));
+}
+
+/**
+ * Draws the sheet in 300-DPI page pixels. The on-screen preview uses the same function on a small
+ * canvas with a scale transform, so what you see is exactly what prints.
+ */
+function drawSheet(ctx: CanvasRenderingContext2D, photo: HTMLCanvasElement, pos: { x: number; y: number }[], w: number, h: number, guides: Guides) {
+  const pw = Math.round(P(w));
+  const ph = Math.round(P(h));
+  const rects = pos.map((p) => [Math.round(P(p.x)), Math.round(P(p.y))] as const);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  // crop marks first: where a mark would run into a neighbouring photo, the photo covers it
+  if (guides === "marks") rects.forEach(([x, y]) => drawCropMarks(ctx, x, y, pw, ph));
+  rects.forEach(([x, y]) => ctx.drawImage(photo, x, y, pw, ph));
+  if (guides === "cut") rects.forEach(([x, y]) => drawCutLine(ctx, x, y, pw, ph));
+}
+
+/** A small on-screen canvas that accepts the same 300-DPI coordinates as the real page. */
+function previewContext(canvas: HTMLCanvasElement, wMm: number, hMm: number, cssW: number) {
+  const fullW = mmToPx(wMm);
+  const fullH = mmToPx(hMm);
+  const k = Math.min(1, (cssW * Math.min(2, window.devicePixelRatio || 1)) / fullW);
+  canvas.width = Math.max(1, Math.round(fullW * k));
+  canvas.height = Math.max(1, Math.round(fullH * k));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, fullW, fullH);
+  return ctx;
 }
 
 function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
@@ -230,7 +305,10 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
   const [customBg, setCustomBg] = useState("#f2f2f2");
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
-  const [sheetKey, setSheetKey] = useState<SheetKey>("4x6");
+  const [paperId, setPaperId] = useState("4x6");
+  const [countPick, setCountPick] = useState<CountPick>("fill");
+  const [customCount, setCustomCount] = useState("10");
+  const [guides, setGuides] = useState<Guides>("cut");
   const [busy, setBusy] = useState<Busy>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +318,7 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLCanvasElement>(null);
   const panRef = useRef<{ id: number; x: number; y: number; fx: number; fy: number; w: number; h: number } | null>(null);
 
   // the object URL lives exactly as long as the source it belongs to
@@ -263,7 +342,31 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
   const H = mmToPx(dimH);
   const bg = bgKey === "custom" ? customBg : (BACKGROUNDS.find((b) => b.key === bgKey)?.value ?? "#ffffff");
 
-  const sheet = useMemo(() => layoutSheet(sheetKey, W, H), [sheetKey, W, H]);
+  const paper = PAPER_MAP[paperId] ?? PAPERS[0];
+  const grid = useMemo(() => bestGrid(paper, dimW, dimH), [paper, dimW, dimH]);
+  const customN = Math.floor(Number(customCount));
+  const countError = countPick === "custom" && (!Number.isFinite(customN) || customN < 1 || customN > 500) ? "Enter a number from 1 to 500." : null;
+  const requested =
+    countPick === "fill" ? grid.capacity : countPick === "custom" ? (countError ? 1 : customN) : Number(countPick);
+  const count = Math.min(requested, grid.capacity);
+  const clamped = requested > grid.capacity && grid.capacity > 0;
+  const positions = useMemo(() => placeCopies(grid, count, dimW, dimH), [grid, count, dimW, dimH]);
+  const paperName = paper.label.replace(/\s*\(.*\)$/, "");
+
+  // live preview of the sheet — same drawing code as the export, on a small canvas, slightly debounced while dragging
+  useEffect(() => {
+    const canvas = previewRef.current;
+    if (!canvas || !src) return;
+    const t = window.setTimeout(() => {
+      const ctx = previewContext(canvas, grid.wMm, grid.hMm, 300);
+      if (!ctx || !positions.length) return;
+      const s = Math.min(1, 220 / W);
+      const photo = renderPhoto(src, Math.max(1, Math.round(W * s)), Math.max(1, Math.round(H * s)), view, bg, brightness, contrast);
+      drawSheet(ctx, photo, positions, dimW, dimH, guides);
+      photo.width = 0;
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [src, view, bg, brightness, contrast, W, H, dimW, dimH, grid, positions, guides]);
 
   const place = src ? placement(src.width, src.height, W, H, view) : null;
   // how many source pixels end up covering the frame width — below ~70% of the output it will look soft
@@ -360,7 +463,7 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
 
   function report(outputType: string, bytesOut: number) {
     if (!src) return;
-    trackEvent("download", tool.slug);
+    if (outputType !== "print") trackEvent("download", tool.slug);
     fetch("/api/tools/track", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -399,71 +502,72 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
     }
   }
 
-  async function buildSheet() {
+  function buildSheet(): PrintPage {
     if (!src) throw new Error("Add a photo first.");
-    if (!sheet.count) throw new Error("This photo size does not fit on the selected paper.");
+    if (!count) throw new Error("This photo size does not fit on the selected paper.");
     const photo = renderPhoto(src, W, H, view, bg, brightness, contrast);
-    const canvas = document.createElement("canvas");
-    canvas.width = sheet.W;
-    canvas.height = sheet.H;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas is unavailable in this browser.");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, sheet.W, sheet.H);
-
-    const gridW = sheet.cols * W + (sheet.cols - 1) * GAP;
-    const gridH = sheet.rows * H + (sheet.rows - 1) * GAP;
-    const x0 = Math.round((sheet.W - gridW) / 2);
-    const y0 = Math.round((sheet.H - gridH) / 2);
-
-    ctx.strokeStyle = "#c8c8c8";
-    ctx.lineWidth = 2;
-    for (let r = 0; r < sheet.rows; r++) {
-      for (let c = 0; c < sheet.cols; c++) {
-        const x = x0 + c * (W + GAP);
-        const y = y0 + r * (H + GAP);
-        ctx.drawImage(photo, x, y);
-        ctx.strokeRect(x - 1, y - 1, W + 2, H + 2); // thin cut line just outside the photo edge
-      }
-    }
+    const { canvas, ctx, wMm, hMm } = paperCanvas(paper, grid.landscape);
+    drawSheet(ctx, photo, positions, dimW, dimH, guides);
     photo.width = 0;
-    return canvas;
+    return { canvas, wMm, hMm };
+  }
+
+  const sheetBase = () => `passport-photos-${sizeTag()}-${paperId}-${count}up`;
+  const sheetReady = !!src && !sizeError && !countError && count > 0;
+
+  async function sheetJpgFile() {
+    const page = buildSheet();
+    try {
+      return await canvasToFile(page.canvas, `${sheetBase()}.jpg`);
+    } finally {
+      page.canvas.width = 0;
+    }
+  }
+
+  async function sheetPdfFile() {
+    const page = buildSheet();
+    try {
+      return blobToFile(await pagesToPdf([page]), `${sheetBase()}.pdf`);
+    } finally {
+      page.canvas.width = 0;
+    }
   }
 
   async function exportSheet(kind: "jpg" | "pdf") {
-    if (!src || busy || sizeError) return;
+    if (!sheetReady || busy) return;
     setBusy(kind === "jpg" ? "sheet-jpg" : "sheet-pdf");
     trackEvent("process", tool.slug);
     try {
-      await new Promise((r) => setTimeout(r, 0));
-      const canvas = await buildSheet();
-      const jpg = await toBlob(canvas, "image/jpeg", 0.92);
-      canvas.width = 0;
-      const base = `passport-photos-${sizeTag()}-${sheetKey}-${sheet.count}up`;
-
-      if (kind === "jpg") {
-        saveBlob(jpg, `${base}.jpg`);
-        report("image/jpeg", jpg.size);
-        notify.success("Print sheet downloaded", `${sheet.count} copies on ${SHEETS[sheetKey].label}. Print at 100% / actual size.`);
-        return;
-      }
-
-      const { PDFDocument } = await import("pdf-lib");
-      const doc = await PDFDocument.create();
-      doc.setTitle("Passport photos");
-      doc.setCreator("SnapGrab");
-      const img = await doc.embedJpg(new Uint8Array(await jpg.arrayBuffer()));
-      const { wPt, hPt } = SHEETS[sheetKey];
-      const [pw, ph] = sheet.landscape ? [hPt, wPt] : [wPt, hPt];
-      const page = doc.addPage([pw, ph]);
-      page.drawImage(img, { x: 0, y: 0, width: pw, height: ph });
-      const bytes = await doc.save();
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      saveBlob(blob, `${base}.pdf`);
-      report("application/pdf", blob.size);
-      notify.success("PDF downloaded", `${sheet.count} copies on ${SHEETS[sheetKey].label}. Print at 100% / actual size — not "fit to page".`);
+      await new Promise((r) => setTimeout(r, 0)); // let the spinner paint before the canvas work
+      const file = kind === "jpg" ? await sheetJpgFile() : await sheetPdfFile();
+      saveBlob(file, file.name);
+      report(file.type, file.size);
+      notify.success(
+        kind === "jpg" ? "Print sheet downloaded" : "PDF downloaded",
+        `${count} ${count === 1 ? "copy" : "copies"} on ${paperName}. Print at 100% / actual size — not "fit to page".`,
+      );
     } catch (err) {
       notify.error("Could not create the print sheet", err instanceof Error ? err.message : undefined);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function printSheet() {
+    if (!sheetReady || busy) return;
+    setBusy("print");
+    try {
+      await new Promise((r) => setTimeout(r, 0));
+      const page = buildSheet();
+      try {
+        await printPages([page], "Passport photos — SnapGrab");
+      } finally {
+        page.canvas.width = 0;
+      }
+      trackEvent("print", tool.slug);
+      report("print", 0);
+    } catch (err) {
+      notify.error("Could not open the print dialog", err instanceof Error ? err.message : "Download the PDF and print that instead.");
     } finally {
       setBusy(null);
     }
@@ -863,67 +967,209 @@ export default function PassportPhotoStudio({ tool }: { tool: Tool }) {
                     {busy === "photo" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                     {busy === "photo" ? "Creating…" : "Download photo (JPG)"}
                   </motion.button>
+                  {!sizeError && (
+                    <ShareSheet
+                      className="mt-2 sm:ml-2 sm:mt-0"
+                      title="My passport photo"
+                      text={`Passport photo ${sizeTag()} made with SnapGrab`}
+                      getFiles={async () => {
+                        if (!src) return [];
+                        const canvas = renderPhoto(src, W, H, view, bg, brightness, contrast);
+                        try {
+                          return [await canvasToFile(canvas, `passport-photo-${sizeTag()}.jpg`)];
+                        } finally {
+                          canvas.width = 0;
+                        }
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* print sheet */}
                 <div className="rounded-2xl surface p-4">
                   <p className="flex items-center gap-1.5 text-sm font-bold">
-                    <Printer className="h-4 w-4 text-brand-400" /> Print sheet
+                    <Printer className="h-4 w-4 text-brand-400" /> Print several photos on one sheet
                   </p>
-                  <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Paper size">
-                    {(Object.keys(SHEETS) as SheetKey[]).map((k) => (
-                      <button
-                        key={k}
-                        type="button"
-                        role="radio"
-                        aria-checked={sheetKey === k}
-                        onClick={() => setSheetKey(k)}
-                        className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition-all ${
-                          sheetKey === k
-                            ? "bg-gradient-to-r from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25"
-                            : "bg-[var(--bg-soft)] text-muted hover:text-[var(--fg)]"
-                        }`}
-                      >
-                        {k === "4x6" ? "4 × 6 in" : "A4"}
-                      </button>
-                    ))}
+
+                  <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,200px)]">
+                    <div className="min-w-0 space-y-4">
+                      <div>
+                        <label htmlFor="pp-paper" className="mb-1.5 block text-xs font-semibold text-muted">
+                          Paper in your printer
+                        </label>
+                        <select id="pp-paper" value={paperId} onChange={(e) => setPaperId(e.target.value)} className={field}>
+                          {PAPERS.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span className="mb-1.5 block text-xs font-semibold text-muted">How many photos</span>
+                        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="How many photos">
+                          {COUNT_PICKS.map((c) => (
+                            <button
+                              key={c.key}
+                              type="button"
+                              role="radio"
+                              aria-checked={countPick === c.key}
+                              onClick={() => setCountPick(c.key)}
+                              className={`min-h-11 rounded-xl px-2 py-2 font-bold transition-all ${
+                                countPick === c.key
+                                  ? "bg-gradient-to-r from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25"
+                                  : "bg-[var(--bg-soft)] text-muted hover:text-[var(--fg)]"
+                              } ${c.key === "fill" || c.key === "custom" ? "text-xs" : "text-sm"}`}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+                        {countPick === "custom" && (
+                          <label className="mt-2 block">
+                            <span className="sr-only">Number of photos</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={1}
+                              max={500}
+                              value={customCount}
+                              onChange={(e) => setCustomCount(e.target.value)}
+                              className={field}
+                              aria-invalid={!!countError}
+                            />
+                          </label>
+                        )}
+                        <p className="mt-2 text-xs text-muted" aria-live="polite">
+                          {sizeError ? (
+                            "Fix the custom photo size first."
+                          ) : countError ? (
+                            <span className="text-red-400">{countError}</span>
+                          ) : grid.capacity ? (
+                            <>
+                              Fits up to <span className="font-semibold text-[var(--fg)]">{grid.capacity}</span> on this paper ({grid.cols}{" "}
+                              × {grid.rows}
+                              {grid.landscape ? ", landscape" : ""}). This sheet:{" "}
+                              <span className="font-semibold text-[var(--fg)]">
+                                {count} {count === 1 ? "photo" : "photos"}
+                              </span>
+                              .
+                            </>
+                          ) : (
+                            <span className="text-red-400">This photo size is too large for the selected paper.</span>
+                          )}
+                        </p>
+                        {clamped && !sizeError && !countError && (
+                          <p className="mt-2 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            You asked for {requested}, but only {grid.capacity} fit on {paperName}, so the sheet has {grid.capacity}. Print
+                            it twice, or pick a larger paper.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
+                          <Scissors className="h-3.5 w-3.5" /> Cutting guides
+                        </span>
+                        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Cutting guides">
+                          {GUIDES.map((g) => (
+                            <button
+                              key={g.key}
+                              type="button"
+                              role="radio"
+                              aria-checked={guides === g.key}
+                              onClick={() => setGuides(g.key)}
+                              className={`min-h-11 rounded-xl px-2 py-2 text-xs font-bold transition-all ${
+                                guides === g.key
+                                  ? "bg-brand-500/15 text-brand-400 ring-1 ring-brand-400"
+                                  : "bg-[var(--bg-soft)] text-muted hover:text-[var(--fg)]"
+                              }`}
+                            >
+                              {g.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <figure className="min-w-0">
+                      <canvas
+                        ref={previewRef}
+                        role="img"
+                        aria-label={`Preview: ${count} photos on ${paperName}${grid.landscape ? ", landscape" : ""}`}
+                        className="mx-auto block h-auto w-full max-w-[200px] rounded-sm bg-white shadow-lg ring-1 ring-black/10"
+                        style={{ aspectRatio: `${grid.wMm} / ${grid.hMm}` }}
+                      />
+                      <figcaption className="mt-2 text-center text-[11px] text-muted">
+                        Live preview · {paperName}
+                        {grid.landscape ? " (landscape)" : ""}
+                      </figcaption>
+                    </figure>
                   </div>
-                  <p className="mt-2 text-xs text-muted">
-                    {sizeError ? (
-                      "Fix the custom size first."
-                    ) : sheet.count ? (
-                      <>
-                        <span className="font-semibold text-[var(--fg)]">
-                          {sheet.count} {sheet.count === 1 ? "copy" : "copies"}
-                        </span>{" "}
-                        ({sheet.cols} × {sheet.rows}
-                        {sheet.landscape ? ", landscape" : ""}) on {SHEETS[sheetKey].label}, with light-grey cut lines. Print at
-                        100% / actual size.
-                      </>
-                    ) : (
-                      "This photo size is too large for the selected paper."
-                    )}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
+
+                  <div className="mt-4 rounded-xl border border-brand-500/25 bg-brand-500/5 px-3 py-2.5 text-xs">
+                    <p className="flex items-center gap-1.5 font-bold text-brand-400">
+                      <Info className="h-3.5 w-3.5" /> Before you print
+                    </p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-5 text-muted">
+                      {PRINT_TIPS.map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <motion.button
                       type="button"
-                      onClick={() => void exportSheet("jpg")}
-                      disabled={!!busy || !!sizeError || !sheet.count}
-                      className={`${btnBase} flex-1 bg-gradient-to-r from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25`}
+                      onClick={() => void printSheet()}
+                      disabled={!!busy || !sheetReady}
+                      whileTap={{ scale: 0.97 }}
+                      className={`${btnBase} bg-gradient-to-r from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25`}
                     >
-                      {busy === "sheet-jpg" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      {busy === "sheet-jpg" ? "Creating…" : "Sheet as JPG"}
-                    </button>
+                      {busy === "print" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                      {busy === "print" ? "Preparing…" : "Print"}
+                    </motion.button>
                     <button
                       type="button"
                       onClick={() => void exportSheet("pdf")}
-                      disabled={!!busy || !!sizeError || !sheet.count}
-                      className={`${btnBase} flex-1 bg-[var(--bg-soft)] hover:text-brand-400`}
+                      disabled={!!busy || !sheetReady}
+                      className={`${btnBase} bg-[var(--bg-soft)] hover:text-brand-400`}
                     >
                       {busy === "sheet-pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                      {busy === "sheet-pdf" ? "Creating…" : "Sheet as PDF"}
+                      {busy === "sheet-pdf" ? "Creating…" : "Download PDF"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void exportSheet("jpg")}
+                      disabled={!!busy || !sheetReady}
+                      className={`${btnBase} bg-[var(--bg-soft)] hover:text-brand-400`}
+                    >
+                      {busy === "sheet-jpg" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      {busy === "sheet-jpg" ? "Creating…" : "Download JPG"}
                     </button>
                   </div>
+                  {sheetReady && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <ShareSheet
+                        label="Share sheet (JPG)"
+                        title="Passport photos ready to print"
+                        text={`${count} passport photos on ${paperName}, made with SnapGrab`}
+                        getFiles={async () => [await sheetJpgFile()]}
+                      />
+                      <ShareSheet
+                        label="Share PDF"
+                        title="Passport photos ready to print"
+                        text={`${count} passport photos on ${paperName} (print at 100%), made with SnapGrab`}
+                        getFiles={async () => [await sheetPdfFile()]}
+                      />
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-muted">
+                    The PDF is exactly {paperName} in size: the safest choice for a print shop, or for a printer that ignores the page
+                    size.
+                  </p>
                 </div>
 
                 <button

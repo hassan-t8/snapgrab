@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, Mail, Shield } from "lucide-react";
-import { BrandGithub, BrandInstagram, BrandX } from "./BrandIcons";
+import { BrandFacebook, BrandInstagram, BrandLinkedIn, BrandTikTok, BrandWhatsApp, BrandX, BrandYouTube } from "./BrandIcons";
+import { getSiteSettings } from "@/lib/site-settings";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
 import Newsletter from "./Newsletter";
 
@@ -18,7 +19,17 @@ const POPULAR_TOOLS = [
 
 export default async function Footer() {
   const year = new Date().getFullYear();
-  const [TOOLS, PLATFORMS] = await Promise.all([getEnabledTools(), getEnabledPlatforms()]);
+  const [TOOLS, PLATFORMS, settings] = await Promise.all([getEnabledTools(), getEnabledPlatforms(), getSiteSettings()]);
+  const so = settings.socials;
+  const socialLinks = [
+    { icon: BrandFacebook, href: so.social_facebook, label: "Facebook" },
+    { icon: BrandInstagram, href: so.social_instagram, label: "Instagram" },
+    { icon: BrandX, href: so.social_x, label: "X" },
+    { icon: BrandYouTube, href: so.social_youtube, label: "YouTube" },
+    { icon: BrandTikTok, href: so.social_tiktok, label: "TikTok" },
+    { icon: BrandWhatsApp, href: so.social_whatsapp, label: "WhatsApp" },
+    { icon: BrandLinkedIn, href: so.social_linkedin, label: "LinkedIn" },
+  ].filter((l): l is typeof l & { href: string } => !!l.href);
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-[var(--line)]">
       <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[52rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-[100px]" />
@@ -38,24 +49,22 @@ export default async function Footer() {
               Free online tools for images, PDFs, documents, money and daily life — plus a fast media downloader. No
               signup, no software, and most tools run right in your browser.
             </p>
-            <div className="mt-5 flex gap-2">
-              {[
-                { icon: BrandX, href: "https://x.com", label: "X" },
-                { icon: BrandInstagram, href: "https://instagram.com", label: "Instagram" },
-                { icon: BrandGithub, href: "https://github.com", label: "GitHub" },
-              ].map(({ icon: Icon, href, label }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  aria-label={label}
-                  className="grid h-9 w-9 place-items-center rounded-xl surface transition-all hover:-translate-y-0.5 hover:border-brand-400/60 hover:text-brand-400"
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
+            {socialLinks.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {socialLinks.map(({ icon: Icon, href, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer me"
+                    aria-label={`SnapGrab on ${label}`}
+                    className="grid h-9 w-9 place-items-center rounded-xl surface transition-all hover:-translate-y-0.5 hover:border-brand-400/60 hover:text-brand-400"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <FooterCol
@@ -104,8 +113,8 @@ export default async function Footer() {
           </p>
           <p className="flex items-center gap-1.5">
             <Mail className="h-3.5 w-3.5" />
-            <a href="mailto:support@snapgrab.app" className="hover:text-brand-400">
-              support@snapgrab.app
+            <a href={`mailto:${settings.contactEmail}`} className="hover:text-brand-400">
+              {settings.contactEmail}
             </a>
           </p>
           <p className="text-center sm:text-right">

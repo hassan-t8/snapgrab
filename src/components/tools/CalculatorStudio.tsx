@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Plus, Trash2 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { notify } from "@/components/Toaster";
+import ShareSheet from "@/components/ShareSheet";
+import { trackEvent } from "@/lib/track-event";
 
 /* ------------------------------------------------------------------ *
  * shared helpers
@@ -513,6 +516,18 @@ function parseDate(s: string) {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 }
 
+const ZODIAC: [number, number, string][] = [
+  [1, 20, "Capricorn ♑"], [2, 19, "Aquarius ♒"], [3, 21, "Pisces ♓"], [4, 20, "Aries ♈"], [5, 21, "Taurus ♉"], [6, 21, "Gemini ♊"],
+  [7, 23, "Cancer ♋"], [8, 23, "Leo ♌"], [9, 23, "Virgo ♍"], [10, 23, "Libra ♎"], [11, 22, "Scorpio ♏"], [12, 22, "Sagittarius ♐"],
+];
+
+/** Western star sign: each entry is the first day of the *next* sign in that month. */
+function zodiacOf(month: number, day: number) {
+  const [, start, sign] = ZODIAC[month - 1];
+  if (day < start) return sign;
+  return ZODIAC[month % 12][2];
+}
+
 function Age({ slug }: { slug: string }) {
   const [dob, setDob] = useState("2000-01-01");
   const [asOf, setAsOf] = useState("");
@@ -541,7 +556,26 @@ function Age({ slug }: { slug: string }) {
     let next = new Date(to.getFullYear(), from.getMonth(), from.getDate());
     if (next <= to) next = new Date(to.getFullYear() + 1, from.getMonth(), from.getDate());
     const untilBirthday = Math.round((next.getTime() - to.getTime()) / 86_400_000);
-    return { years, months, days, totalDays, totalMonths: years * 12 + months, untilBirthday };
+    const hijriDob = toHijri(new Date(Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())));
+    const hijriNow = toHijri(new Date(Date.UTC(to.getFullYear(), to.getMonth(), to.getDate())));
+    let hijriAge = hijriNow.year - hijriDob.year;
+    if (hijriNow.month < hijriDob.month || (hijriNow.month === hijriDob.month && hijriNow.day < hijriDob.day)) hijriAge -= 1;
+    return {
+      years,
+      months,
+      days,
+      totalDays,
+      totalMonths: years * 12 + months,
+      totalWeeks: Math.floor(totalDays / 7),
+      totalHours: totalDays * 24,
+      untilBirthday,
+      bornOn: from.toLocaleDateString("en-GB", { weekday: "long" }),
+      nextOn: next.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+      turning: next.getFullYear() - from.getFullYear(),
+      hijriDob: `${hijriDob.day} ${HIJRI_MONTHS[hijriDob.month - 1]} ${hijriDob.year} AH`,
+      hijriAge,
+      zodiac: zodiacOf(from.getMonth() + 1, from.getDate()),
+    };
   }, [dob, asOf]);
   useTrackOnce(slug, result !== null);
 
@@ -552,14 +586,41 @@ function Age({ slug }: { slug: string }) {
         <Field label="Age on (date)" type="date" value={asOf} onChange={setAsOf} hint="Use a job ad's closing date to check eligibility." />
       </div>
       {result ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="sm:col-span-3">
-            <Stat label="Exact age" value={`${result.years} years, ${result.months} months, ${result.days} days`} strong />
+        <>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-3">
+              <Stat label="Exact age" value={`${result.years} years, ${result.months} months, ${result.days} days`} strong />
+            </div>
+            <Stat label="Total months" value={fmt(result.totalMonths, 0)} />
+            <Stat label="Total weeks" value={fmt(result.totalWeeks, 0)} />
+            <Stat label="Total days" value={fmt(result.totalDays, 0)} />
+            <Stat label="Total hours (approx.)" value={fmt(result.totalHours, 0)} />
+            <Stat label="You were born on a" value={result.bornOn} />
+            <Stat label="Star sign" value={result.zodiac} />
           </div>
-          <Stat label="Total months" value={fmt(result.totalMonths, 0)} />
-          <Stat label="Total days" value={fmt(result.totalDays, 0)} />
-          <Stat label="Next birthday in" value={`${result.untilBirthday} days`} />
-        </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-brand-400/30 bg-brand-500/10 p-4">
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted">Next birthday</span>
+              <span className="mt-1 block text-lg font-extrabold">
+                {result.untilBirthday === 0 ? "Today — happy birthday! 🎉" : `In ${result.untilBirthday} days`}
+              </span>
+              <span className="mt-0.5 block text-sm text-muted">
+                You turn {result.turning} on {result.nextOn}
+              </span>
+            </div>
+            <div className="rounded-2xl surface p-4">
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted">Islamic (Hijri) age</span>
+              <span className="mt-1 block text-lg font-extrabold">{result.hijriAge} Hijri years</span>
+              <span className="mt-0.5 block text-sm text-muted">Born {result.hijriDob} (Umm al-Qura)</span>
+            </div>
+          </div>
+          <div className="mt-4">
+            <ShareSheet
+              title="My exact age"
+              text={`I am ${result.years} years, ${result.months} months and ${result.days} days old — ${fmt(result.totalDays, 0)} days! Check yours on SnapGrab`}
+            />
+          </div>
+        </>
       ) : (
         <p className="mt-5 text-sm text-muted">Pick a date of birth that is before the &quot;age on&quot; date.</p>
       )}
@@ -1398,6 +1459,1032 @@ function Prayer({ slug, focus }: { slug: string; focus: "times" | "qibla" }) {
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * Hijri (Islamic) date converter — Umm al-Qura calendar from Intl
+ * ------------------------------------------------------------------ */
+
+const HIJRI_MONTHS = [
+  "Muharram", "Safar", "Rabi al-Awwal", "Rabi al-Thani", "Jumada al-Ula", "Jumada al-Akhirah",
+  "Rajab", "Shaban", "Ramadan", "Shawwal", "Dhul Qadah", "Dhul Hijjah",
+];
+
+const hijriFmt = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura-nu-latn", { day: "numeric", month: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** Hijri day/month/year of a UTC calendar date. */
+function toHijri(d: Date) {
+  const parts = Object.fromEntries(hijriFmt.formatToParts(d).map((p) => [p.type, p.value]));
+  return { day: Number(parts.day), month: Number(parts.month), year: Number(String(parts.year).replace(/\D/g, "")) };
+}
+
+const utcDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
+const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Gregorian date for a Hijri date (searches around the arithmetic estimate). */
+function fromHijri(y: number, m: number, day: number): Date | null {
+  const approx = Math.round((y - 1) * 354.36707 + (m - 1) * 29.530589 + day) - 492_148; // days since 1970 (approx.)
+  const base = new Date(approx * 86_400_000);
+  for (let off = -40; off <= 40; off++) {
+    const g = addDays(base, off);
+    const h = toHijri(g);
+    if (h.year === y && h.month === m && h.day === day) return g;
+  }
+  return null;
+}
+
+const gregLong = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+function Hijri({ slug }: { slug: string }) {
+  const [mode, setMode] = useState<"g2h" | "h2g">("g2h");
+  const [greg, setGreg] = useState("");
+  const [hy, setHy] = useState("1448");
+  const [hm, setHm] = useState("9");
+  const [hd, setHd] = useState("1");
+  const [adjust, setAdjust] = useState<"-1" | "0" | "1">("0");
+
+  // today is only known in the browser — fill it in after mount so server and client HTML match
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const now = new Date();
+      setGreg(isoDay(utcDay(now.getFullYear(), now.getMonth(), now.getDate())));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const shift = Number(adjust);
+  const g2h = useMemo(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(greg)) return null;
+    const [y, m, d] = greg.split("-").map(Number);
+    const date = utcDay(y, m - 1, d);
+    // a local moon sighting one day later means the Hijri date is one day behind
+    return { date, h: toHijri(addDays(date, -shift)) };
+  }, [greg, shift]);
+  const h2g = useMemo(() => {
+    const g = fromHijri(num(hy), num(hm), num(hd));
+    return g ? addDays(g, shift) : null;
+  }, [hy, hm, hd, shift]);
+  useTrackOnce(slug, mode === "g2h" ? !!g2h : !!h2g);
+
+  return (
+    <>
+      <Toggle
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: "g2h", label: "English → Islamic" },
+          { value: "h2g", label: "Islamic → English" },
+        ]}
+      />
+      {mode === "g2h" ? (
+        <div className="mt-4">
+          <Field label="Date" type="date" value={greg} onChange={setGreg} />
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Field label="Day" value={hd} onChange={setHd} placeholder="1" />
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold">Month</span>
+            <select value={hm} onChange={(e) => setHm(e.target.value)} className={field}>
+              {HIJRI_MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {i + 1}. {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field label="Year (AH)" value={hy} onChange={setHy} placeholder="1448" />
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-semibold">Moon sighting:</span>
+        <Toggle
+          value={adjust}
+          onChange={setAdjust}
+          options={[
+            { value: "-1", label: "1 day earlier" },
+            { value: "0", label: "Umm al-Qura" },
+            { value: "1", label: "1 day later (often Pakistan)" },
+          ]}
+        />
+      </div>
+      <div className="mt-5">
+        {mode === "g2h" ? (
+          g2h ? (
+            <Stat label={gregLong(g2h.date)} value={`${g2h.h.day} ${HIJRI_MONTHS[g2h.h.month - 1]} ${g2h.h.year} AH`} strong />
+          ) : (
+            <Stat label="Islamic date" value="—" />
+          )
+        ) : h2g ? (
+          <Stat label={`${num(hd)} ${HIJRI_MONTHS[num(hm) - 1]} ${num(hy)} AH`} value={gregLong(h2g)} strong />
+        ) : (
+          <Stat label="English date" value="Not a valid Islamic date" />
+        )}
+      </div>
+      <p className="mt-4 text-xs text-muted">
+        Calculated with the Umm al-Qura calendar used in Saudi Arabia. Pakistan, India and the UK follow local moon sighting
+        (Ruet-e-Hilal), which is often one day later — use the adjustment above.
+      </p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Ramadan Sehri & Iftar timetable — adhan, same city list as Prayer
+ * ------------------------------------------------------------------ */
+
+function Ramadan({ slug }: { slug: string }) {
+  const [adhan, setAdhan] = useState<typeof import("adhan") | null>(null);
+  const [today, setToday] = useState<Date | null>(null);
+  const [place, setPlace] = useState<Place>(ALL_PLACES[0]);
+  const [method, setMethod] = useState<MethodKey>("Karachi");
+  const [hanafi, setHanafi] = useState(true);
+  const [caution, setCaution] = useState("0");
+  const [adjust, setAdjust] = useState<"-1" | "0" | "1">("1");
+
+  useEffect(() => {
+    import("adhan")
+      .then((m) => setAdhan(() => m))
+      .catch(() => notify.error("Could not load the calculator", "Please refresh the page."));
+    const id = requestAnimationFrame(() => setToday(new Date()));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const rows = useMemo(() => {
+    if (!adhan || !today) return null;
+    // the next Ramadan that has not finished yet
+    const t = toHijri(utcDay(today.getFullYear(), today.getMonth(), today.getDate()));
+    let year = t.month > 9 || (t.month === 9 && t.day > 29) ? t.year + 1 : t.year;
+    let start = fromHijri(year, 9, 1);
+    if (!start) {
+      year += 1;
+      start = fromHijri(year, 9, 1);
+    }
+    if (!start) return null;
+    start = addDays(start, Number(adjust));
+    const coords = new adhan.Coordinates(place.lat, place.lng);
+    const params = adhan.CalculationMethod[method]();
+    params.madhab = hanafi ? adhan.Madhab.Hanafi : adhan.Madhab.Shafi;
+    const pad = Math.max(0, Math.min(15, num(caution)));
+    const fmtT = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: place.tz });
+    return {
+      year,
+      days: Array.from({ length: 30 }, (_, i) => {
+        const g = addDays(start, i);
+        const local = new Date(g.getUTCFullYear(), g.getUTCMonth(), g.getUTCDate());
+        const pt = new adhan.PrayerTimes(coords, local, params);
+        return {
+          n: i + 1,
+          date: g.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }),
+          sehri: fmtT(new Date(pt.fajr.getTime() - pad * 60_000)),
+          iftar: fmtT(pt.maghrib),
+          isToday: isoDay(g) === isoDay(utcDay(today.getFullYear(), today.getMonth(), today.getDate())),
+        };
+      }),
+    };
+  }, [adhan, today, place, method, hanafi, caution, adjust]);
+  useTrackOnce(slug, !!rows);
+
+  const choose = (p: Place) => {
+    setPlace(p);
+    const d = defaultsFor(p.tz);
+    setMethod(d.method);
+    setHanafi(d.hanafi);
+    setAdjust(/Karachi|Kolkata|Dhaka|Europe\//.test(p.tz) ? "1" : "0");
+  };
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold">City</span>
+          <select
+            value={place.name}
+            onChange={(e) => {
+              const p = ALL_PLACES.find((x) => x.name === e.target.value);
+              if (p) choose(p);
+            }}
+            className={field}
+          >
+            {PLACES.map((g) => (
+              <optgroup key={g.group} label={g.group}>
+                {g.items.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold">Calculation method</span>
+          <select value={method} onChange={(e) => setMethod(e.target.value as MethodKey)} className={field}>
+            {METHODS.map((m) => (
+              <option key={m.key} value={m.key}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Field label="Stop Sehri earlier by (minutes)" value={caution} onChange={setCaution} hint="Many timetables add 5–10 minutes of caution." />
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold">First roza (moon sighting)</span>
+          <select value={adjust} onChange={(e) => setAdjust(e.target.value as "-1" | "0" | "1")} className={field}>
+            <option value="-1">1 day before Saudi</option>
+            <option value="0">Same day as Saudi (Umm al-Qura)</option>
+            <option value="1">1 day after Saudi (usual in Pakistan)</option>
+          </select>
+        </label>
+      </div>
+
+      {!rows ? (
+        <div className="mt-6 h-64 animate-pulse rounded-2xl surface" aria-busy="true" />
+      ) : (
+        <>
+          <h3 className="mt-6 text-lg font-extrabold">
+            Ramadan {rows.year} AH timetable — {place.name}
+          </h3>
+          <div className="mt-3 overflow-x-auto rounded-2xl surface">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-muted">
+                  <th className="px-3 py-3 sm:px-4">Roza</th>
+                  <th className="px-3 py-3 sm:px-4">Date</th>
+                  <th className="px-3 py-3 sm:px-4">Sehri ends</th>
+                  <th className="px-3 py-3 sm:px-4">Iftar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.days.map((r) => (
+                  <tr key={r.n} className={`border-t border-[var(--line)] ${r.isToday ? "bg-brand-500/15 font-bold" : ""}`}>
+                    <td className="px-3 py-2 sm:px-4">{r.n}</td>
+                    <td className="whitespace-nowrap px-3 py-2 sm:px-4">{r.date}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-semibold sm:px-4">{r.sehri}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-semibold sm:px-4">{r.iftar}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                trackEvent("print", slug);
+                window.print();
+              }}
+              className="rounded-xl surface px-4 py-2.5 text-sm font-bold hover:border-brand-400/60"
+            >
+              Print timetable
+            </button>
+            <ShareSheet
+              title={`Ramadan ${rows.year} timetable — ${place.name}`}
+              text={`Sehri & Iftar times for ${place.name}, Ramadan ${rows.year}`}
+            />
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Sehri ends at Fajr; Iftar is at Maghrib. Times are calculated astronomically for {place.name}; the first fast depends
+            on the official moon sighting, so check the announcement and adjust above.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Date difference, add/subtract days, countdown
+ * ------------------------------------------------------------------ */
+
+function DateDiff({ slug }: { slug: string }) {
+  const [tab, setTab] = useState<"between" | "add">("between");
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [days, setDays] = useState("30");
+  const [sign, setSign] = useState<"add" | "sub">("add");
+  const [workdays, setWorkdays] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      const now = new Date();
+      const t = isoDay(utcDay(now.getFullYear(), now.getMonth(), now.getDate()));
+      setA(t);
+      setB(isoDay(utcDay(now.getFullYear(), 11, 31)));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const parse = (s: string) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00Z`) : null);
+  const da = parse(a);
+  const db = parse(b);
+
+  const between = useMemo(() => {
+    if (!da || !db) return null;
+    const [s, e] = da <= db ? [da, db] : [db, da];
+    const total = Math.round((e.getTime() - s.getTime()) / 86_400_000);
+    let y = e.getUTCFullYear() - s.getUTCFullYear();
+    let m = e.getUTCMonth() - s.getUTCMonth();
+    let d = e.getUTCDate() - s.getUTCDate();
+    if (d < 0) {
+      m -= 1;
+      d += new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), 0)).getUTCDate();
+    }
+    if (m < 0) {
+      y -= 1;
+      m += 12;
+    }
+    let business = 0;
+    for (let t = s.getTime(); t < e.getTime(); t += 86_400_000) {
+      const wd = new Date(t).getUTCDay();
+      if (wd !== 0 && wd !== 6) business++;
+    }
+    return { total, y, m, d, weeks: Math.floor(total / 7), rem: total % 7, business };
+  }, [da, db]);
+
+  const added = useMemo(() => {
+    if (!da) return null;
+    const n = Math.round(num(days)) * (sign === "add" ? 1 : -1);
+    if (!workdays) return addDays(da, n);
+    let left = Math.abs(n);
+    let t = da;
+    while (left > 0) {
+      t = addDays(t, n > 0 ? 1 : -1);
+      const wd = t.getUTCDay();
+      if (wd !== 0 && wd !== 6) left--;
+    }
+    return t;
+  }, [da, days, sign, workdays]);
+  useTrackOnce(slug, tab === "between" ? !!between : !!added);
+
+  return (
+    <>
+      <Toggle
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "between", label: "Days between dates" },
+          { value: "add", label: "Add / subtract days" },
+        ]}
+      />
+      {tab === "between" ? (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Start date" type="date" value={a} onChange={setA} />
+            <Field label="End date" type="date" value={b} onChange={setB} />
+          </div>
+          {between && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <Stat label="Total days" value={`${between.total.toLocaleString()} days`} strong />
+              <Stat label="Years, months, days" value={`${between.y}y ${between.m}m ${between.d}d`} />
+              <Stat label="Weeks" value={`${between.weeks} weeks ${between.rem} days`} />
+              <Stat label="Working days (Mon–Fri)" value={between.business.toLocaleString()} />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+            <Field label="Start date" type="date" value={a} onChange={setA} />
+            <Toggle
+              value={sign}
+              onChange={setSign}
+              options={[
+                { value: "add", label: "+ Add" },
+                { value: "sub", label: "− Subtract" },
+              ]}
+            />
+            <Field label="Days" value={days} onChange={setDays} placeholder="30" />
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={workdays} onChange={(e) => setWorkdays(e.target.checked)} className="h-4 w-4 accent-brand-500" />
+            Count working days only (skip Saturday and Sunday)
+          </label>
+          {added && (
+            <div className="mt-5">
+              <Stat label="Result" value={gregLong(added)} strong />
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Discount + sales tax / GST
+ * ------------------------------------------------------------------ */
+
+function Discount({ slug }: { slug: string }) {
+  const [price, setPrice] = useState("5000");
+  const [off, setOff] = useState("20");
+  const [extra, setExtra] = useState("");
+  const [tax, setTax] = useState("0");
+  const [taxMode, setTaxMode] = useState<"add" | "inclusive">("add");
+
+  const p = num(price);
+  const afterFirst = p * (1 - Math.min(100, num(off)) / 100);
+  const afterAll = afterFirst * (1 - Math.min(100, num(extra)) / 100);
+  const t = num(tax) / 100;
+  const taxAmt = taxMode === "add" ? afterAll * t : afterAll - afterAll / (1 + t);
+  const final = taxMode === "add" ? afterAll + taxAmt : afterAll;
+  useTrackOnce(slug, p > 0);
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Original price" value={price} onChange={setPrice} placeholder="5000" />
+        <Field label="Discount %" value={off} onChange={setOff} placeholder="20" />
+        <Field label="Extra discount % (optional)" value={extra} onChange={setExtra} placeholder="10" hint="Applied after the first discount." />
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+        <Field label="Sales tax / GST %" value={tax} onChange={setTax} placeholder="18" hint="Pakistan GST is 18% on most goods; enter 0 to skip." />
+        <Toggle
+          value={taxMode}
+          onChange={setTaxMode}
+          options={[
+            { value: "add", label: "Add tax" },
+            { value: "inclusive", label: "Price includes tax" },
+          ]}
+        />
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="You pay" value={fmt(final)} strong />
+        <Stat label="You save" value={`${fmt(p - afterAll)} (${p ? fmt(((p - afterAll) / p) * 100, 1) : 0}%)`} />
+        <Stat label="Price after discount" value={fmt(afterAll)} />
+        <Stat label={taxMode === "add" ? "Tax added" : "Tax included"} value={fmt(taxAmt)} />
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Typing speed test
+ * ------------------------------------------------------------------ */
+
+const PASSAGES = [
+  "The quick brown fox jumps over the lazy dog while the sun sets slowly behind the hills, painting the sky in shades of orange and pink.",
+  "Practice makes progress. Typing a little every day builds speed and accuracy far better than one long session once a week.",
+  "Pakistan is home to some of the highest mountains in the world, including K2, which climbers from every country dream of reaching.",
+  "Good habits are easy to start and hard to keep. Write down one small goal for tomorrow and finish it before checking your phone.",
+  "A clear CV, a short cover letter and a friendly follow-up email can open more doors than you expect in a busy job market.",
+  "Cricket fans fill the stadium early, waving green flags and cheering loudly long before the first ball is bowled.",
+];
+
+function TypingTest({ slug }: { slug: string }) {
+  const [seconds, setSeconds] = useState<30 | 60 | 120>(60);
+  const [passage, setPassage] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  const [best, setBest] = useState<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const target = useMemo(() => Array.from({ length: 6 }, (_, i) => PASSAGES[(passage + i) % PASSAGES.length]).join(" "), [passage]);
+  const elapsed = startedAt ? Math.min(seconds, (now - startedAt) / 1000) : 0;
+  const finished = startedAt !== null && elapsed >= seconds;
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      try {
+        const b = Number(localStorage.getItem("sg-typing-best"));
+        if (b) setBest(b);
+      } catch {}
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    if (!startedAt || finished) return;
+    const t = window.setInterval(() => setNow(Date.now()), 200);
+    return () => window.clearInterval(t);
+  }, [startedAt, finished]);
+
+  let correct = 0;
+  for (let i = 0; i < typed.length; i++) if (typed[i] === target[i]) correct++;
+  // a few keys in the first second would show an absurd speed, so measure over at least 5 s
+  const minutes = Math.max(elapsed, 5) / 60;
+  const wpm = Math.round(correct / 5 / minutes);
+  const accuracy = typed.length ? Math.round((correct / typed.length) * 100) : 100;
+
+  useEffect(() => {
+    if (!finished || !wpm) return;
+    const id = requestAnimationFrame(() => {
+      if (!best || wpm > best) {
+        setBest(wpm);
+        try {
+          localStorage.setItem("sg-typing-best", String(wpm));
+        } catch {}
+        notify.success("New personal best!", `${wpm} words per minute`);
+      }
+    });
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+  useTrackOnce(slug, finished);
+
+  const restart = (next = false) => {
+    setTyped("");
+    setStartedAt(null);
+    setNow(0);
+    if (next) setPassage((p) => (p + 1) % PASSAGES.length);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Toggle
+          value={String(seconds) as "30" | "60" | "120"}
+          onChange={(v) => {
+            setSeconds(Number(v) as 30 | 60 | 120);
+            restart();
+          }}
+          options={[
+            { value: "30", label: "30 sec" },
+            { value: "60", label: "1 min" },
+            { value: "120", label: "2 min" },
+          ]}
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <Stat label="Time left" value={`${Math.ceil(seconds - elapsed)}s`} />
+        <Stat label="Speed" value={`${startedAt ? wpm : 0} WPM`} strong />
+        <Stat label="Accuracy" value={`${accuracy}%`} />
+      </div>
+
+      <div
+        className="mt-4 max-h-44 overflow-y-auto rounded-2xl bg-[var(--bg-soft)] p-4 font-mono text-[15px] leading-relaxed"
+        onClick={() => inputRef.current?.focus()}
+        aria-hidden
+      >
+        {target.slice(0, Math.max(typed.length + 160, 220)).split("").map((ch, i) => (
+          <span
+            key={i}
+            className={
+              i < typed.length
+                ? typed[i] === ch
+                  ? "text-accent-400"
+                  : "rounded bg-red-500/30 text-red-300"
+                : i === typed.length
+                  ? "rounded bg-brand-500/30"
+                  : "text-muted"
+            }
+          >
+            {ch}
+          </span>
+        ))}
+      </div>
+
+      <textarea
+        ref={inputRef}
+        value={typed}
+        disabled={finished}
+        onChange={(e) => {
+          if (!startedAt) {
+            const t = Date.now();
+            setStartedAt(t);
+            setNow(t);
+          }
+          setTyped(e.target.value.slice(0, target.length));
+        }}
+        onPaste={(e) => e.preventDefault()}
+        rows={3}
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="Start typing the text above — the timer starts with your first key."
+        aria-label="Type here"
+        className={`${field} mt-3 font-mono`}
+      />
+
+      {finished && (
+        <div className="mt-4 rounded-2xl border border-accent-500/30 bg-accent-500/10 p-4">
+          <p className="text-lg font-extrabold">
+            {wpm} WPM · {accuracy}% accuracy
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {wpm >= 60 ? "Excellent — faster than most office typists." : wpm >= 40 ? "Good — above the average of about 40 WPM." : "Keep practising a few minutes a day; most people reach 40 WPM within weeks."}
+            {best ? ` Your best: ${best} WPM.` : ""}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => restart(true)} className="rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 px-4 py-2 text-sm font-bold text-white">
+              Try another text
+            </button>
+            <ShareSheet title="My typing speed" text={`I type ${wpm} words per minute with ${accuracy}% accuracy. Beat me on SnapGrab!`} />
+          </div>
+        </div>
+      )}
+      {!finished && startedAt && (
+        <button type="button" onClick={() => restart()} className="mt-3 text-sm font-semibold text-muted underline hover:text-[var(--fg)]">
+          Restart
+        </button>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Gold rate calculator — tola / gram / masha / ratti, karat, making
+ * ------------------------------------------------------------------ */
+
+const TOLA_G = 11.6638;
+const GOLD_UNITS = { tola: TOLA_G, gram: 1, masha: TOLA_G / 12, ratti: TOLA_G / 96, ounce: 31.1035 } as const;
+const KARATS = [24, 22, 21, 18] as const;
+
+function Gold({ slug }: { slug: string }) {
+  const [rate, setRate] = useState("");
+  const [rateUnit, setRateUnit] = useState<"tola" | "10g" | "gram">("tola");
+  const [tola, setTola] = useState("1");
+  const [gram, setGram] = useState("0");
+  const [masha, setMasha] = useState("0");
+  const [ratti, setRatti] = useState("0");
+  const [karat, setKarat] = useState<(typeof KARATS)[number]>(22);
+  const [making, setMaking] = useState("");
+  const [makingMode, setMakingMode] = useState<"pct" | "fixed">("pct");
+  const [deduct, setDeduct] = useState("");
+
+  const perGram24 = num(rate) / (rateUnit === "tola" ? TOLA_G : rateUnit === "10g" ? 10 : 1);
+  const grams = num(tola) * GOLD_UNITS.tola + num(gram) + num(masha) * GOLD_UNITS.masha + num(ratti) * GOLD_UNITS.ratti;
+  const pure = grams * (karat / 24);
+  const metal = pure * perGram24;
+  const makingAmt = makingMode === "pct" ? (metal * num(making)) / 100 : num(making);
+  const buy = metal + makingAmt;
+  const sell = metal * (1 - Math.min(100, num(deduct)) / 100);
+  useTrackOnce(slug, perGram24 > 0 && grams > 0);
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+        <Field label="Today's 24K gold rate (Rs)" value={rate} onChange={setRate} placeholder="e.g. 285000" hint="Check your local sarafa or jeweller's board rate." />
+        <Toggle
+          value={rateUnit}
+          onChange={setRateUnit}
+          options={[
+            { value: "tola", label: "per tola" },
+            { value: "10g", label: "per 10 g" },
+            { value: "gram", label: "per gram" },
+          ]}
+        />
+      </div>
+
+      <p className="mb-1.5 mt-5 text-sm font-semibold">Weight</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Field label="Tola" value={tola} onChange={setTola} />
+        <Field label="Masha" value={masha} onChange={setMasha} hint="12 masha = 1 tola" />
+        <Field label="Ratti" value={ratti} onChange={setRatti} hint="8 ratti = 1 masha" />
+        <Field label="+ Grams" value={gram} onChange={setGram} />
+      </div>
+
+      <div className="mt-4">
+        <span className="mb-1.5 block text-sm font-semibold">Purity</span>
+        <Toggle
+          value={String(karat) as "24" | "22" | "21" | "18"}
+          onChange={(v) => setKarat(Number(v) as (typeof KARATS)[number])}
+          options={KARATS.map((k) => ({ value: String(k) as "24" | "22" | "21" | "18", label: `${k}K` }))}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+        <Field label={makingMode === "pct" ? "Making charges (%)" : "Making charges (Rs)"} value={making} onChange={setMaking} placeholder={makingMode === "pct" ? "8" : "15000"} />
+        <Toggle
+          value={makingMode}
+          onChange={setMakingMode}
+          options={[
+            { value: "pct", label: "%" },
+            { value: "fixed", label: "Rs" },
+          ]}
+        />
+        <Field label="Deduction when selling (%)" value={deduct} onChange={setDeduct} placeholder="10" hint="Polish / wastage cut most jewellers take." />
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="Buying price (gold + making)" value={rs(buy)} strong />
+        <Stat label="Value of the gold only" value={rs(metal)} />
+        <Stat label="Approx. selling price" value={rs(sell)} />
+        <Stat label="Weight" value={`${fmt(grams, 3)} g · ${fmt(grams / TOLA_G, 3)} tola · pure ${fmt(pure, 3)} g`} />
+      </div>
+      <p className="mt-4 text-xs text-muted">
+        1 tola = 11.6638 g = 12 masha = 96 ratti. {karat}K gold is {fmt((karat / 24) * 100, 1)}% pure. Shops use their own making
+        and deduction rates — ask before you buy or sell. For Zakat on gold, use the{" "}
+        <Link href="/tools/zakat-calculator" className="underline hover:text-brand-400">
+          Zakat Calculator
+        </Link>
+        .
+      </p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Solar / UPS load calculator
+ * ------------------------------------------------------------------ */
+
+type Appliance = { id: number; name: string; watts: string; qty: string; hours: string };
+
+const APPLIANCE_PRESETS: { name: string; watts: number; hours: number }[] = [
+  { name: "Ceiling fan (AC)", watts: 75, hours: 12 },
+  { name: "Ceiling fan (DC inverter)", watts: 35, hours: 12 },
+  { name: "LED bulb", watts: 12, hours: 6 },
+  { name: "LED tube light", watts: 20, hours: 6 },
+  { name: "Refrigerator", watts: 150, hours: 12 },
+  { name: "LED TV 43\"", watts: 90, hours: 5 },
+  { name: "Laptop", watts: 60, hours: 6 },
+  { name: "Desktop PC", watts: 200, hours: 6 },
+  { name: "Wi-Fi router", watts: 10, hours: 24 },
+  { name: "Phone charger", watts: 10, hours: 3 },
+  { name: "Inverter AC 1 ton", watts: 900, hours: 8 },
+  { name: "Inverter AC 1.5 ton", watts: 1300, hours: 8 },
+  { name: "Water pump (1 hp)", watts: 750, hours: 1 },
+  { name: "Washing machine", watts: 500, hours: 1 },
+  { name: "Iron", watts: 1000, hours: 0.5 },
+  { name: "Microwave", watts: 1200, hours: 0.3 },
+];
+
+const INVERTER_SIZES = [1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+
+function SolarLoad({ slug }: { slug: string }) {
+  const [items, setItems] = useState<Appliance[]>([
+    { id: 1, name: "Ceiling fan (AC)", watts: "75", qty: "4", hours: "12" },
+    { id: 2, name: "LED bulb", watts: "12", qty: "8", hours: "6" },
+    { id: 3, name: "Refrigerator", watts: "150", qty: "1", hours: "12" },
+    { id: 4, name: "LED TV 43\"", watts: "90", qty: "1", hours: "5" },
+  ]);
+  const [sunHours, setSunHours] = useState("5");
+  const [panelW, setPanelW] = useState("585");
+  const [backup, setBackup] = useState("4");
+  const [unitRate, setUnitRate] = useState("");
+  const nextId = useRef(10);
+
+  const update = (id: number, key: keyof Appliance, v: string) => setItems((list) => list.map((a) => (a.id === id ? { ...a, [key]: v } : a)));
+  const add = (preset?: (typeof APPLIANCE_PRESETS)[number]) =>
+    setItems((list) => [
+      ...list,
+      { id: nextId.current++, name: preset?.name ?? "Appliance", watts: String(preset?.watts ?? ""), qty: "1", hours: String(preset?.hours ?? "") },
+    ]);
+
+  const peakW = items.reduce((n, a) => n + num(a.watts) * num(a.qty), 0);
+  const dailyWh = items.reduce((n, a) => n + num(a.watts) * num(a.qty) * Math.min(24, num(a.hours)), 0);
+  const monthlyUnits = (dailyWh * 30) / 1000;
+  const inverterKva = INVERTER_SIZES.find((s) => s * 1000 * 0.8 >= peakW * 1.25) ?? Math.ceil((peakW * 1.25) / 800);
+  // 80% system efficiency (heat, wiring, inverter losses)
+  const solarKw = dailyWh / 1000 / (Math.max(1, num(sunHours)) * 0.8);
+  const panels = Math.ceil((solarKw * 1000) / Math.max(100, num(panelW)));
+  // backup for the running load at night, 80% usable battery capacity
+  const avgW = dailyWh / 24;
+  const batteryKwh = (avgW * num(backup)) / 1000 / 0.8;
+  const bill = num(unitRate) * monthlyUnits;
+  useTrackOnce(slug, peakW > 0);
+
+  return (
+    <>
+      <div className="space-y-2">
+        <div className="hidden grid-cols-[1fr_90px_70px_80px_36px] gap-2 px-1 text-xs font-bold uppercase tracking-wider text-muted sm:grid">
+          <span>Appliance</span>
+          <span>Watts</span>
+          <span>Qty</span>
+          <span>Hours/day</span>
+          <span />
+        </div>
+        {items.map((a) => (
+          <div key={a.id} className="grid grid-cols-[1fr_1fr_1fr_36px] gap-2 rounded-2xl bg-[var(--bg-soft)] p-2 sm:grid-cols-[1fr_90px_70px_80px_36px] sm:bg-transparent sm:p-0">
+            <input value={a.name} onChange={(e) => update(a.id, "name", e.target.value)} aria-label="Appliance" className={`${field} col-span-4 sm:col-span-1`} />
+            <input value={a.watts} onChange={(e) => update(a.id, "watts", e.target.value)} inputMode="decimal" aria-label="Watts" placeholder="W" className={field} />
+            <input value={a.qty} onChange={(e) => update(a.id, "qty", e.target.value)} inputMode="decimal" aria-label="Quantity" placeholder="Qty" className={field} />
+            <input value={a.hours} onChange={(e) => update(a.id, "hours", e.target.value)} inputMode="decimal" aria-label="Hours per day" placeholder="h" className={field} />
+            <button
+              type="button"
+              onClick={() => setItems((list) => list.filter((x) => x.id !== a.id))}
+              aria-label={`Remove ${a.name}`}
+              className="grid place-items-center rounded-xl text-muted hover:text-red-400"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <select
+          value=""
+          onChange={(e) => {
+            const p = APPLIANCE_PRESETS.find((x) => x.name === e.target.value);
+            if (p) add(p);
+          }}
+          aria-label="Add a common appliance"
+          className={`${field} w-auto`}
+        >
+          <option value="">+ Add common appliance…</option>
+          {APPLIANCE_PRESETS.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.name} — {p.watts} W
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={() => add()} className="flex items-center gap-1.5 rounded-xl surface px-4 py-2.5 text-sm font-bold hover:border-brand-400/60">
+          <Plus className="h-4 w-4" /> Custom
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+        <Field label="Sun hours/day" value={sunHours} onChange={setSunHours} hint="Pakistan: about 5" />
+        <Field label="Panel size (W)" value={panelW} onChange={setPanelW} />
+        <Field label="Backup needed (hours)" value={backup} onChange={setBackup} />
+        <Field label="Your rate per unit (Rs)" value={unitRate} onChange={setUnitRate} placeholder="Optional" />
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="Inverter size" value={`${inverterKva} kVA / kW`} strong />
+        <Stat label="Solar panels" value={`${fmt(solarKw, 1)} kW · about ${panels} × ${num(panelW)} W`} />
+        <Stat label="Peak load" value={`${fmt(peakW, 0)} W`} />
+        <Stat label="Units used" value={`${fmt(dailyWh / 1000, 1)} per day · ${fmt(monthlyUnits, 0)} per month`} />
+        <Stat label={`Battery for ${num(backup)} h backup`} value={`${fmt(batteryKwh, 1)} kWh (≈ ${Math.ceil((batteryKwh * 1000) / (12 * 100))} × 12 V 100 Ah)`} />
+        <Stat label="Monthly bill this load would cost" value={bill ? rs(bill) : "Enter your per-unit rate"} />
+      </div>
+      <p className="mt-4 text-xs text-muted">
+        Estimates for planning: inverter with 25% headroom at 0.8 power factor, panels at 80% system efficiency, batteries at 80%
+        usable depth. Motors (pumps, ACs, fridges) draw 3–5× their rating for a moment when starting — a qualified installer
+        should confirm the final design.
+      </p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Fuel / trip cost
+ * ------------------------------------------------------------------ */
+
+function Fuel({ slug }: { slug: string }) {
+  const [tab, setTab] = useState<"trip" | "mileage">("trip");
+  const [km, setKm] = useState("250");
+  const [kmpl, setKmpl] = useState("14");
+  const [price, setPrice] = useState("");
+  const [round, setRound] = useState(false);
+  const [people, setPeople] = useState("1");
+  const [mKm, setMKm] = useState("420");
+  const [mL, setML] = useState("30");
+
+  const dist = num(km) * (round ? 2 : 1);
+  const litres = num(kmpl) ? dist / num(kmpl) : 0;
+  const cost = litres * num(price);
+  const mileage = num(mL) ? num(mKm) / num(mL) : 0;
+  useTrackOnce(slug, tab === "trip" ? litres > 0 : mileage > 0);
+
+  return (
+    <>
+      <Toggle
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "trip", label: "Trip cost" },
+          { value: "mileage", label: "My car's mileage" },
+        ]}
+      />
+      {tab === "trip" ? (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Field label="Distance (km)" value={km} onChange={setKm} hint="Lahore → Islamabad ≈ 375 km by motorway" />
+            <Field label="Mileage (km per litre)" value={kmpl} onChange={setKmpl} hint="City 800cc ≈ 16, 1300cc ≈ 12–14" />
+            <Field label="Petrol price (Rs/litre)" value={price} onChange={setPrice} placeholder="Today's price" />
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:items-end">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={round} onChange={(e) => setRound(e.target.checked)} className="h-4 w-4 accent-brand-500" />
+              Return trip (double the distance)
+            </label>
+            <Field label="Split between people" value={people} onChange={setPeople} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <Stat label="Fuel cost" value={price ? rs(cost) : "Enter price"} strong />
+            <Stat label="Fuel needed" value={`${fmt(litres, 1)} litres`} />
+            <Stat label="Per person" value={price ? rs(cost / Math.max(1, num(people))) : "—"} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Kilometres driven" value={mKm} onChange={setMKm} hint="Fill the tank, reset the trip meter, drive, then fill up again." />
+            <Field label="Litres filled" value={mL} onChange={setML} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Stat label="Mileage" value={`${fmt(mileage, 1)} km/l`} strong />
+            <Stat label="Fuel per 100 km" value={mileage ? `${fmt(100 / mileage, 1)} litres` : "—"} />
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Calorie (BMR / TDEE) calculator — Mifflin-St Jeor
+ * ------------------------------------------------------------------ */
+
+const ACTIVITY = [
+  { value: "1.2", label: "Little or no exercise" },
+  { value: "1.375", label: "Light (1–3 days/week)" },
+  { value: "1.55", label: "Moderate (3–5 days/week)" },
+  { value: "1.725", label: "Active (6–7 days/week)" },
+  { value: "1.9", label: "Very active / physical job" },
+] as const;
+
+function Calories({ slug }: { slug: string }) {
+  const [sex, setSex] = useState<"male" | "female">("male");
+  const [age, setAge] = useState("28");
+  const [weight, setWeight] = useState("70");
+  const [unit, setUnit] = useState<"cm" | "ft">("ft");
+  const [cm, setCm] = useState("170");
+  const [ft, setFt] = useState("5");
+  const [inch, setInch] = useState("7");
+  const [activity, setActivity] = useState<string>("1.375");
+
+  const heightCm = unit === "cm" ? num(cm) : (num(ft) * 12 + num(inch)) * 2.54;
+  const valid = num(age) > 0 && num(weight) > 0 && heightCm > 0;
+  const bmr = 10 * num(weight) + 6.25 * heightCm - 5 * num(age) + (sex === "male" ? 5 : -161);
+  const tdee = bmr * num(activity);
+  useTrackOnce(slug, valid);
+
+  const goals = [
+    { label: "Lose 0.5 kg / week", kcal: tdee - 500 },
+    { label: "Lose 0.25 kg / week", kcal: tdee - 250 },
+    { label: "Maintain weight", kcal: tdee },
+    { label: "Gain 0.25 kg / week", kcal: tdee + 250 },
+  ];
+  const floor = sex === "male" ? 1500 : 1200;
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <span className="mb-1.5 block text-sm font-semibold">Sex</span>
+          <Toggle
+            value={sex}
+            onChange={setSex}
+            options={[
+              { value: "male", label: "Male" },
+              { value: "female", label: "Female" },
+            ]}
+          />
+        </div>
+        <Field label="Age (years)" value={age} onChange={setAge} />
+        <Field label="Weight (kg)" value={weight} onChange={setWeight} />
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
+        <Toggle
+          value={unit}
+          onChange={setUnit}
+          options={[
+            { value: "ft", label: "ft / in" },
+            { value: "cm", label: "cm" },
+          ]}
+        />
+        {unit === "cm" ? (
+          <Field label="Height (cm)" value={cm} onChange={setCm} />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Feet" value={ft} onChange={setFt} />
+            <Field label="Inches" value={inch} onChange={setInch} />
+          </div>
+        )}
+      </div>
+      <label className="mt-4 block">
+        <span className="mb-1.5 block text-sm font-semibold">Activity</span>
+        <select value={activity} onChange={(e) => setActivity(e.target.value)} className={field}>
+          {ACTIVITY.map((a) => (
+            <option key={a.value} value={a.value}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {valid && (
+        <>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Stat label="Calories to maintain weight" value={`${fmt(tdee, 0)} kcal/day`} strong />
+            <Stat label="Resting burn (BMR)" value={`${fmt(bmr, 0)} kcal/day`} />
+          </div>
+          <div className="mt-3 overflow-hidden rounded-2xl surface">
+            {goals.map((g) => (
+              <div key={g.label} className="flex items-center justify-between border-t border-[var(--line)] px-4 py-2.5 text-sm first:border-t-0">
+                <span>{g.label}</span>
+                <span className="font-bold">{fmt(Math.max(floor, g.kcal), 0)} kcal</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Mifflin-St Jeor equation. Targets never go below {floor} kcal, a common safe minimum. Not medical advice — for
+            pregnancy, diabetes or other conditions, follow your doctor. Check your weight range with the{" "}
+            <Link href="/tools/bmi-calculator" className="underline hover:text-brand-400">
+              BMI Calculator
+            </Link>
+            .
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 export default function CalculatorStudio({ tool }: { tool: Tool }) {
@@ -1414,6 +2501,15 @@ export default function CalculatorStudio({ tool }: { tool: Tool }) {
     currency: <Currency slug={slug} />,
     prayer: <Prayer slug={slug} focus="times" />,
     qibla: <Prayer slug={slug} focus="qibla" />,
+    hijri: <Hijri slug={slug} />,
+    ramadan: <Ramadan slug={slug} />,
+    "date-diff": <DateDiff slug={slug} />,
+    discount: <Discount slug={slug} />,
+    "typing-test": <TypingTest slug={slug} />,
+    gold: <Gold slug={slug} />,
+    "solar-load": <SolarLoad slug={slug} />,
+    fuel: <Fuel slug={slug} />,
+    calories: <Calories slug={slug} />,
   };
 
   return (

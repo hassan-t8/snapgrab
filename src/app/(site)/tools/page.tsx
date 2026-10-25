@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Calculator, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Calculator, Printer, Sparkles, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
@@ -13,7 +13,7 @@ import { ToolSearchBox } from "@/components/ToolSearch";
 export const metadata: Metadata = {
   title: "Free Online Tools — converters, generators and downloaders",
   description:
-    "Free online tools: image converter and compressor, PDF merge, split and page numbers, salary tax and Zakat calculators, CGPA, EMI and age calculators, WiFi and WhatsApp QR codes, unit converter and more. No signup, nothing uploaded.",
+    "Free online tools: passport photo maker, ID card front & back printing, image to text (Urdu OCR), background remover, PDF tools, currency converter, salary tax, Zakat and gold calculators, prayer times, Urdu keyboard, voice typing and more. No signup.",
   keywords: [
     "free online tools",
     "image converter",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
 };
 
-const CATEGORY_ICON = { Image: ImageIcon, PDF: FileText, Calculators: Calculator, Text: Type, Generators: Palette, Audio: Music, Video } as const;
+const CATEGORY_ICON = { Image: ImageIcon, Print: Printer, PDF: FileText, Calculators: Calculator, Text: Type, Everyday: Sparkles, Generators: Palette, Audio: Music, Video } as const;
 
 const TOOLS_FAQ = [
   {
@@ -44,11 +44,11 @@ const TOOLS_FAQ = [
   },
   {
     q: "Do you upload my files?",
-    a: "No. Image, PDF, text and generator tools all run inside your browser — via the Canvas API, pdf-lib and Web Crypto — so files and text never leave your device. Only the three media downloaders talk to our server, and they receive just the URL you paste, never a file.",
+    a: "No. Image, print, PDF, text and calculator tools run inside your browser, so your files, photos and ID cards never leave your device. The media downloaders send our server only the link you paste, and the currency converter fetches daily rates. Voice typing uses your browser's own speech service (Google in Chrome), and Image to Text and the background remover download their language data or AI model once — your images stay on your device.",
   },
   {
     q: "What can these tools do?",
-    a: "Images: convert, compress, resize, make favicons and Base64 data URIs. PDF: build from images, merge, split, rotate and add page numbers. Calculators: Pakistan salary tax, Zakat, loan EMI, GPA/CGPA, age, percentage, BMI and a unit converter (marla, kanal, tola and more). Text: word count, case conversion, JSON formatting, Base64, URL encoding, hashing and slugs. Generators: passwords, UUIDs, QR codes (including WiFi, WhatsApp and vCard), colour conversion and lorem ipsum.",
+    a: "Images: convert, compress, resize, crop, remove backgrounds, read text from photos (including Urdu) and make signatures. Print: passport photos, ID cards front and back, and photo prints at exact sizes. PDF: merge, split, rotate, organise, number pages and convert to JPG. Calculators: currency, salary tax, Zakat, gold, solar load, EMI, CGPA, age, BMI, calories, fuel and more. Text: Urdu keyboard, voice typing, text to speech, typing test and developer tools. Everyday: prayer times, Qibla, Ramadan timetable, tasbeeh counter, timers and a random picker.",
   },
   {
     q: "Which image formats are supported?",

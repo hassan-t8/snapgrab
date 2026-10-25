@@ -7,6 +7,7 @@ import type { PDFFont } from "pdf-lib";
 import type { Tool } from "@/lib/tools";
 import { notify } from "@/components/Toaster";
 import { trackEvent } from "@/lib/track-event";
+import ShareSheet from "@/components/ShareSheet";
 
 /* ------------------------------------------------------------------ *
  * types & constants
@@ -1138,6 +1139,14 @@ export default function CvStudio({ tool }: { tool: Tool }) {
               {busy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Download className="h-[18px] w-[18px]" />}
               {busy ? "Building PDF…" : "Download PDF"}
             </motion.button>
+            <ShareSheet
+              title="My CV"
+              text="Made with the free CV Maker on SnapGrab"
+              getFiles={async () => {
+                const bytes = await buildCvPdf(cv);
+                return [new File([bytes as BlobPart], `${slugify(cv.personal.name) || "my"}-cv.pdf`, { type: "application/pdf" })];
+              }}
+            />
             <button
               type="button"
               onClick={loadSample}

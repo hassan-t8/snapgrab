@@ -11,6 +11,13 @@ import PassportPhotoStudio from "@/components/tools/PassportPhotoStudio";
 import PdfPagesStudio from "@/components/tools/PdfPagesStudio";
 import InvoiceStudio from "@/components/tools/InvoiceStudio";
 import CvStudio from "@/components/tools/CvStudio";
+import IdCardPrintStudio from "@/components/tools/IdCardPrintStudio";
+import PhotoPrintStudio from "@/components/tools/PhotoPrintStudio";
+import OcrStudio from "@/components/tools/OcrStudio";
+import BgRemoveStudio from "@/components/tools/BgRemoveStudio";
+import SignatureStudio from "@/components/tools/SignatureStudio";
+import CropStudio from "@/components/tools/CropStudio";
+import UtilityStudio from "@/components/tools/UtilityStudio";
 import Downloader from "@/components/Downloader";
 import AdSlot from "@/components/AdSlot";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
@@ -18,7 +25,8 @@ import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import { TOOLS, TOOL_CATEGORIES, TOOL_MAP, relatedTools } from "@/lib/tools";
 import { ToolIcon } from "@/lib/tool-icons";
 import { ToolSearchBox } from "@/components/ToolSearch";
-import { breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
+import ShareSheet from "@/components/ShareSheet";
+import { siteUrl, breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
 import { getEnabledTools, getServiceState } from "@/lib/services";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
 import QuotaPaused from "@/components/QuotaPaused";
@@ -168,6 +176,11 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
               ))}
             </div>
           </Reveal>
+          <Reveal delay={0.24}>
+            <div className="mt-5 flex justify-center">
+              <ShareSheet title={tool.title ?? tool.headline} text={`${tool.name} — ${tool.tagline}. Free on SnapGrab`} url={`${siteUrl()}/tools/${tool.slug}`} label="Share this tool" />
+            </div>
+          </Reveal>
         </div>
 
         <div id="tool-app" className="mx-auto mt-10 max-w-3xl scroll-mt-24">
@@ -185,6 +198,20 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
             <ImageStudio tool={tool} />
           ) : tool.engine === "photo" ? (
             <PassportPhotoStudio tool={tool} />
+          ) : tool.engine === "print" ? (
+            tool.mode === "id-card-print" ? <IdCardPrintStudio tool={tool} /> : <PhotoPrintStudio tool={tool} />
+          ) : tool.engine === "image-ai" ? (
+            tool.mode === "ocr" ? (
+              <OcrStudio tool={tool} />
+            ) : tool.mode === "remove-bg" ? (
+              <BgRemoveStudio tool={tool} />
+            ) : tool.mode === "signature" ? (
+              <SignatureStudio tool={tool} />
+            ) : (
+              <CropStudio tool={tool} />
+            )
+          ) : tool.engine === "utility" ? (
+            <UtilityStudio tool={tool} />
           ) : tool.engine === "pdf-pages" ? (
             <PdfPagesStudio tool={tool} />
           ) : tool.engine === "doc" ? (
@@ -234,15 +261,19 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
         </div>
       </section>
 
-      {!tool.provider && !tool.engine.startsWith("link-") && (
+      {/* voice typing goes through the browser's speech service, so it is not "nothing leaves your device" */}
+      {!tool.provider && !tool.engine.startsWith("link-") && tool.mode !== "voice-typing" && (
         <section className="px-4 pb-6 sm:px-6 lg:px-8">
           <Reveal className="mx-auto max-w-4xl">
             <div className="flex items-start gap-3 rounded-2xl border border-accent-500/30 bg-accent-500/5 p-6">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
               <p className="text-sm leading-relaxed text-muted">
                 <strong className="text-[var(--fg)]">Your data stays on your device.</strong> This tool runs entirely in
-                your browser — nothing is uploaded, nothing is stored on our servers, and it keeps working even if your
-                connection drops mid-way. We record only an anonymous count of how many times the tool ran.
+                your browser — nothing is uploaded and nothing is stored on our servers.{" "}
+                {tool.engine === "image-ai" && (tool.mode === "ocr" || tool.mode === "remove-bg")
+                  ? "The first time, it downloads its AI model or language data once; after that it is cached."
+                  : "It keeps working even if your connection drops mid-way."}{" "}
+                We record only an anonymous count of how many times the tool ran.
               </p>
             </div>
           </Reveal>

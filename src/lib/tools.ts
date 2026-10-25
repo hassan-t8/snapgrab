@@ -1,9 +1,9 @@
 import { QUOTA_PROVIDERS, type CostTier, type ProviderId } from "./quota-providers";
 
 export type ToolEngine =
-  | "image" | "photo" | "pdf" | "pdf-pages" | "text" | "generate" | "calc" | "doc" | "link-audio" | "link-video";
+  | "image" | "photo" | "print" | "image-ai" | "utility" | "pdf" | "pdf-pages" | "text" | "generate" | "calc" | "doc" | "link-audio" | "link-video";
 
-export type ToolCategory = "Image" | "PDF" | "Calculators" | "Text" | "Generators" | "Audio" | "Video";
+export type ToolCategory = "Image" | "Print" | "PDF" | "Calculators" | "Text" | "Everyday" | "Generators" | "Audio" | "Video";
 
 export type Tool = {
   slug: string;
@@ -25,7 +25,11 @@ export type Tool = {
     | "case" | "base64" | "url" | "json" | "hash" | "count"
     | "password" | "uuid" | "qr" | "wifi-qr" | "whatsapp" | "vcard-qr" | "color" | "lorem"
     | "income-tax-pk" | "zakat" | "emi" | "cgpa" | "age" | "percentage" | "bmi" | "unit"
-    | "currency" | "prayer" | "qibla" | "passport-photo" | "pdf-to-image" | "organize" | "invoice" | "cv";
+    | "currency" | "prayer" | "qibla" | "passport-photo" | "pdf-to-image" | "organize" | "invoice" | "cv"
+    | "id-card-print" | "photo-print" | "ocr" | "remove-bg" | "signature" | "crop-image"
+    | "hijri" | "ramadan" | "date-diff" | "discount" | "typing-test"
+    | "gold" | "solar-load" | "fuel" | "calories"
+    | "urdu-keyboard" | "voice-typing" | "text-to-speech" | "tasbeeh" | "timer" | "spin-wheel";
   accept?: string;
   inputs: string[];
   outputs: string[];
@@ -1547,7 +1551,7 @@ export const TOOLS: Tool[] = [
         a: "The tool gets the size and layout right, but acceptance also depends on lighting, expression, glasses and background. Always check the latest rules of the office you are applying to.",
       },
     ],
-    related: ["image-resizer", "image-compressor", "image-to-pdf", "cv-maker"],
+    related: ["id-card-print", "print-photos", "remove-background", "image-resizer"],
   },
 
   /* ------------------------------------ PDF pages ------------------------------------ */
@@ -1719,11 +1723,610 @@ export const TOOLS: Tool[] = [
     ],
     related: ["passport-photo-maker", "invoice-generator", "word-counter", "image-to-pdf"],
   },
+  /* ------------------------------------ print at home ------------------------------------ */
+  {
+    slug: "id-card-print",
+    name: "ID Card Print (Front & Back)",
+    headline: "Print ID Card Front and Back — CNIC & card size on A4",
+    title: "Print ID Card Front & Back on A4 (CNIC size)",
+    category: "Print",
+    tagline: "Exact card size, both sides, any printer",
+    description:
+      "Print your CNIC, student card, office card or driving licence front and back at the exact card size (85.6 × 54 mm). Put both sides on one page like a photocopy, or print them back-to-back — with a double-sided printer or by flipping the sheet on a normal printer, with step-by-step help and a printer test.",
+    engine: "print",
+    mode: "id-card-print",
+    accept: "image/*",
+    inputs: ["Front photo", "Back photo"],
+    outputs: ["Print", "PDF"],
+    color: "#0f766e",
+    keywords: [
+      "print id card front and back",
+      "cnic print size",
+      "id card print on a4",
+      "print both sides of id card on one page",
+      "cnic copy print",
+      "id card size 85.6 x 54",
+      "double sided id card print",
+      "how to print cnic back side",
+    ],
+    steps: [
+      { title: "Add both sides", body: "Upload or take a photo of the front and the back, then fit each one inside the card frame." },
+      { title: "Choose how to print", body: "Both sides on one page, a double-sided printer, or a normal printer where you flip the sheet yourself." },
+      { title: "Pick copies and paper", body: "Choose A4 or Letter and how many cards per sheet; cutting guides are added for you." },
+      { title: "Print or save", body: "Print at 100% scale, or download a PDF to print at a shop. You can also share it on WhatsApp." },
+    ],
+    faqs: [
+      {
+        q: "What size is a CNIC / ID card?",
+        a: "Pakistani CNICs, bank cards and most ID cards use the international ID-1 size: 85.6 × 53.98 mm (3.37 × 2.13 in). The tool prints at exactly that size as long as you print at 100% scale (not “Fit to page”).",
+      },
+      {
+        q: "My printer prints only one side. Can I still print the back behind the front?",
+        a: "Yes. Choose “Single-sided printer”: print the front, put the same sheet back in the tray as shown, then print the back. The positions are mirrored so each back lands behind its front. Run the quick printer test once and the tool remembers how your printer feeds paper.",
+      },
+      {
+        q: "Which option should I use for forms and applications?",
+        a: "“Both sides on one page” — it gives you a photocopy-style page with the front and back of the card together, which is what most forms, banks and offices ask for.",
+      },
+      {
+        q: "Are my ID card photos uploaded?",
+        a: "No. Everything happens inside your browser and nothing is sent to our server — important for a document as sensitive as an ID card.",
+      },
+    ],
+    related: ["passport-photo-maker", "print-photos", "crop-image", "image-to-pdf"],
+  },
+  {
+    slug: "print-photos",
+    name: "Print Photos at Home",
+    headline: "Print Photos at Home — 4×6, 5×7 and wallet size on A4",
+    title: "Print Photos on A4 — 4×6, 5×7, Wallet Sizes",
+    category: "Print",
+    tagline: "Fit many photos on one sheet at exact sizes",
+    description:
+      "Lay out your photos at real print sizes — wallet, 3R, 4×6, 5×7, passport or square — on A4, Letter or photo paper, as many per page as fit, with cutting guides. Print at home or save a print-ready PDF for the photo shop.",
+    engine: "print",
+    mode: "photo-print",
+    accept: "image/*",
+    inputs: ["JPG", "PNG", "WEBP", "HEIC*"],
+    outputs: ["Print", "PDF"],
+    color: "#c026d3",
+    keywords: ["print photos at home", "print 4x6 photos on a4", "photo print size", "print multiple photos on one page", "wallet size photo print", "5x7 photo print"],
+    steps: [
+      { title: "Add your photos", body: "Pick one or more photos from your phone or computer." },
+      { title: "Choose the print size", body: "Wallet, 4×6, 5×7, passport and more — fill or fit each photo." },
+      { title: "Choose paper and copies", body: "A4, Letter or photo paper; the tool fits as many as possible and adds pages when needed." },
+      { title: "Print or save PDF", body: "Print at 100% scale or take the PDF to a print shop." },
+    ],
+    faqs: [
+      {
+        q: "Why are my printed photos the wrong size?",
+        a: "The print dialog is probably scaling the page. Choose Scale: 100% (or “Actual size”) and Margins: None. Saving the PDF and printing that usually avoids the problem completely.",
+      },
+      {
+        q: "How many 4×6 photos fit on A4?",
+        a: "Two 4×6 in (102 × 152 mm) photos fit on an A4 sheet; four 3.5×5 in photos, or nine wallet-size photos.",
+      },
+      {
+        q: "Are my photos uploaded?",
+        a: "No. The layout is made in your browser; your photos never leave your device.",
+      },
+    ],
+    related: ["passport-photo-maker", "id-card-print", "image-resizer", "crop-image"],
+  },
+
+  /* ------------------------------------ smart image tools ------------------------------------ */
+  {
+    slug: "image-to-text",
+    name: "Image to Text (OCR)",
+    headline: "Image to Text — copy text from photos in English & Urdu",
+    title: "Image to Text (OCR) — English & Urdu, Free",
+    category: "Image",
+    tagline: "Pull editable text out of any photo or screenshot",
+    description:
+      "Extract text from photos, screenshots and scanned documents in English, Urdu, Arabic and Hindi. Copy it, edit it or save it as a text file — the recognition runs in your browser, so your documents stay private.",
+    engine: "image-ai",
+    mode: "ocr",
+    accept: "image/*",
+    inputs: ["JPG", "PNG", "WEBP", "Screenshot"],
+    outputs: ["Text", "TXT"],
+    color: "#4f46e5",
+    keywords: ["image to text", "ocr online free", "extract text from image", "urdu ocr", "photo to text", "screenshot to text", "copy text from picture"],
+    steps: [
+      { title: "Add an image", body: "Upload, paste a screenshot with Ctrl+V, or take a photo of a page." },
+      { title: "Pick the language", body: "English, Urdu, Arabic, Hindi or English + Urdu together." },
+      { title: "Copy the text", body: "Edit the result, copy it, save it as .txt or share it." },
+    ],
+    faqs: [
+      { q: "Does it work with Urdu?", a: "Yes. Choose Urdu (or English + Urdu). Printed Urdu text is recognised well; handwriting and decorative Nastaliq fonts are less accurate." },
+      { q: "How do I get the best result?", a: "Use a sharp, well-lit photo taken straight on, with the text filling most of the picture. Turn on “Improve contrast” for photos of paper." },
+      { q: "Is my document uploaded?", a: "No. The text recognition runs inside your browser. The first run downloads the language data once; after that it is cached." },
+    ],
+    related: ["crop-image", "image-compressor", "word-counter", "pdf-to-jpg"],
+  },
+  {
+    slug: "remove-background",
+    name: "Background Remover",
+    headline: "Remove Background from Photo — free, transparent PNG",
+    title: "Remove Background from Photo — Free PNG",
+    category: "Image",
+    tagline: "Cut out people from photos in one click",
+    description:
+      "Remove the background from portraits, profile pictures and passport photos automatically. Download a transparent PNG or put the person on a white, blue or custom colour — free, with no signup and no upload.",
+    engine: "image-ai",
+    mode: "remove-bg",
+    accept: "image/*",
+    inputs: ["JPG", "PNG", "WEBP"],
+    outputs: ["PNG", "JPG"],
+    color: "#e11d48",
+    keywords: ["remove background", "background remover", "remove bg free", "transparent background", "white background photo", "change photo background"],
+    steps: [
+      { title: "Add a photo", body: "Works best with photos of people — portraits, selfies and passport photos." },
+      { title: "Wait a moment", body: "The AI model loads once, then cuts out the person in seconds on your device." },
+      { title: "Pick a background", body: "Keep it transparent or choose white, blue, grey or any colour." },
+      { title: "Download or share", body: "Save as PNG or JPG, or send it straight to WhatsApp." },
+    ],
+    faqs: [
+      { q: "Does it work for products and objects?", a: "It is designed for people. Products, pets and objects may not be cut out cleanly." },
+      { q: "Can I make a white background passport photo?", a: "Yes — remove the background, choose white, then open the Passport Photo Maker to crop it to the exact size." },
+      { q: "Is my photo uploaded?", a: "No. The model runs in your browser; the photo never leaves your device." },
+    ],
+    related: ["passport-photo-maker", "crop-image", "image-compressor", "signature-maker"],
+  },
+  {
+    slug: "signature-maker",
+    name: "Signature Maker",
+    headline: "Online Signature Maker — draw or type, transparent PNG",
+    title: "Signature Maker — Draw or Type, Transparent PNG",
+    category: "Image",
+    tagline: "Create a clean digital signature",
+    description:
+      "Draw your signature with a finger or mouse, type it in a handwriting font, or clean up a photo of your signature on paper. Download a transparent PNG to place on documents, PDFs and forms.",
+    engine: "image-ai",
+    mode: "signature",
+    inputs: ["Draw", "Type", "Photo"],
+    outputs: ["PNG", "JPG"],
+    color: "#1d4ed8",
+    keywords: ["signature maker", "online signature", "digital signature png", "draw signature", "transparent signature", "e signature generator"],
+    steps: [
+      { title: "Draw, type or upload", body: "Sign with your finger or mouse, type your name, or upload a photo of your signature." },
+      { title: "Adjust", body: "Choose ink colour and thickness; undo any stroke." },
+      { title: "Download", body: "Save a transparent PNG trimmed to your signature." },
+    ],
+    faqs: [
+      { q: "Is a drawn signature legally valid?", a: "Many organisations accept a signature image on forms, but legal rules differ by country and document. For contracts and government documents, check what the receiver accepts." },
+      { q: "Is my signature stored?", a: "No. It is created in your browser and never sent to our server." },
+    ],
+    related: ["remove-background", "image-to-pdf", "cv-maker", "invoice-generator"],
+  },
+  {
+    slug: "crop-image",
+    name: "Crop Image",
+    headline: "Crop Image Online — rotate, flip and resize for Instagram",
+    title: "Crop, Rotate & Flip Image Online — Free",
+    category: "Image",
+    tagline: "Crop to 1:1, 4:5, 9:16 or any size",
+    description:
+      "Crop photos to the exact shape you need — square for Instagram, 4:5 portrait, 9:16 for Stories and Reels, 16:9 for YouTube — and rotate, flip or straighten them. Free, quick and private.",
+    engine: "image-ai",
+    mode: "crop-image",
+    accept: "image/*",
+    inputs: ["JPG", "PNG", "WEBP"],
+    outputs: ["JPG", "PNG", "WEBP"],
+    color: "#ea580c",
+    keywords: ["crop image", "crop photo online", "rotate image", "flip image", "instagram crop", "crop picture free"],
+    steps: [
+      { title: "Add a photo", body: "Pick any image from your device." },
+      { title: "Crop and straighten", body: "Drag the box or choose a preset shape; rotate or flip if needed." },
+      { title: "Save", body: "Download as JPG, PNG or WEBP, or share it directly." },
+    ],
+    faqs: [
+      { q: "Which size is best for Instagram?", a: "Square (1:1) or portrait (4:5) for feed posts and 9:16 for Stories and Reels." },
+      { q: "Does cropping reduce quality?", a: "No — the cropped area keeps its original pixels. Choose PNG for no compression at all." },
+    ],
+    related: ["image-resizer", "image-compressor", "remove-background", "image-converter"],
+  },
+
+  /* ------------------------------------ dates, money, Islamic ------------------------------------ */
+  {
+    slug: "hijri-date-converter",
+    name: "Hijri Date Converter",
+    headline: "Hijri Date Converter — Islamic date today & English to Hijri",
+    title: "Hijri Date Converter — Islamic Date Today",
+    category: "Calculators",
+    tagline: "Convert between Islamic and English dates",
+    description:
+      "Find today's Islamic (Hijri) date, or convert any English date to Hijri and back. Adjust for moon sighting in Pakistan and other countries where the Islamic month often starts a day later.",
+    engine: "calc",
+    mode: "hijri",
+    inputs: ["English date", "Hijri date"],
+    outputs: ["Islamic date", "English date"],
+    color: "#15803d",
+    keywords: ["hijri date today", "islamic date today", "hijri to gregorian", "english to islamic date converter", "chand ki tarikh", "islamic calendar 1448"],
+    steps: [
+      { title: "Choose a direction", body: "English → Islamic or Islamic → English." },
+      { title: "Enter the date", body: "Pick a date or type the Hijri day, month and year." },
+      { title: "Adjust for moon sighting", body: "Pakistan often starts the month one day after Saudi Arabia." },
+    ],
+    faqs: [
+      { q: "Why does the Hijri date differ between countries?", a: "Islamic months start with the sighting of the new moon. Saudi Arabia follows the Umm al-Qura calendar, while Pakistan's Ruet-e-Hilal committee announces sightings locally — so dates can differ by a day." },
+      { q: "What is the current Hijri year?", a: "The Islamic year 1448 AH runs from mid-2026 to mid-2027. Open the converter for today's exact date." },
+    ],
+    related: ["ramadan-timetable", "prayer-times", "qibla-direction", "age-calculator"],
+  },
+  {
+    slug: "ramadan-timetable",
+    name: "Ramadan Sehri & Iftar Timetable",
+    headline: "Ramadan Timetable 2027 — Sehri & Iftar times for your city",
+    title: "Ramadan Timetable 2027 — Sehri & Iftar Times",
+    category: "Calculators",
+    tagline: "Full 30-day Sehri and Iftar timetable",
+    description:
+      "Sehri and Iftar times for every day of Ramadan in Karachi, Lahore, Islamabad and cities worldwide. Choose your calculation method, add a caution margin for Sehri, then print or share the timetable.",
+    engine: "calc",
+    mode: "ramadan",
+    inputs: ["City"],
+    outputs: ["30-day timetable"],
+    color: "#7c3aed",
+    keywords: ["ramadan timetable 2027", "sehri time", "iftar time", "sehri iftar timetable karachi", "ramzan calendar 2027 lahore", "ramadan calendar pakistan"],
+    steps: [
+      { title: "Choose your city", body: "Pick from Pakistan, the Gulf, UK, Europe and more." },
+      { title: "Set the method", body: "Karachi method for Pakistan; Umm al-Qura for Saudi Arabia and others." },
+      { title: "Print or share", body: "Print the 30-day timetable or send it to family on WhatsApp." },
+    ],
+    faqs: [
+      { q: "When does Ramadan 2027 start?", a: "Ramadan 1448 AH is expected to begin around 8 February 2027 in Saudi Arabia and about a day later in Pakistan, subject to the moon sighting announcement." },
+      { q: "Is Sehri time the same as Fajr?", a: "Sehri ends when Fajr begins. Many timetables stop Sehri a few minutes earlier as a precaution — set that margin with the “Stop Sehri earlier” option." },
+    ],
+    related: ["prayer-times", "hijri-date-converter", "zakat-calculator", "qibla-direction"],
+  },
+  {
+    slug: "date-calculator",
+    name: "Date Calculator",
+    headline: "Date Calculator — days between dates, add or subtract days",
+    title: "Date Calculator — Days Between Dates",
+    category: "Calculators",
+    tagline: "Count days, weeks and working days",
+    description:
+      "Count the days, weeks, months and working days between two dates, or add and subtract days from any date — for deadlines, notice periods, pregnancy weeks, visa stays and countdowns.",
+    engine: "calc",
+    mode: "date-diff",
+    inputs: ["Two dates", "Days to add"],
+    outputs: ["Days", "Date"],
+    color: "#0891b2",
+    keywords: ["days between dates", "date calculator", "add days to date", "working days calculator", "how many days until", "date difference calculator"],
+    steps: [
+      { title: "Pick a calculation", body: "Days between two dates, or a date plus or minus some days." },
+      { title: "Enter the dates", body: "Today is filled in for you." },
+      { title: "Read the answer", body: "Total days, weeks, years-months-days and working days." },
+    ],
+    faqs: [
+      { q: "Is the end date included?", a: "The count is the number of days from the start date to the end date (end date not included). Add 1 if you need to count both days." },
+      { q: "Does it skip public holidays?", a: "Working days skip Saturdays and Sundays only; public holidays are not removed." },
+    ],
+    related: ["age-calculator", "hijri-date-converter", "percentage-calculator", "loan-emi-calculator"],
+  },
+  {
+    slug: "discount-calculator",
+    name: "Discount & GST Calculator",
+    headline: "Discount Calculator — sale price, savings and GST",
+    title: "Discount Calculator with GST / Sales Tax",
+    category: "Calculators",
+    tagline: "Sale price after discount and tax",
+    description:
+      "Work out the sale price after a percentage discount, stack an extra discount, and add or remove GST / sales tax. See exactly how much you save before you buy.",
+    engine: "calc",
+    mode: "discount",
+    inputs: ["Price", "Discount %", "Tax %"],
+    outputs: ["Final price", "Savings"],
+    color: "#db2777",
+    keywords: ["discount calculator", "sale price calculator", "percent off calculator", "gst calculator pakistan", "sales tax calculator", "price after discount"],
+    steps: [
+      { title: "Enter the price", body: "The original price before any discount." },
+      { title: "Add the discounts", body: "For example 50% off plus an extra 10% at checkout." },
+      { title: "Add tax if needed", body: "Add GST on top, or work out the tax already included in a price." },
+    ],
+    faqs: [
+      { q: "Is 50% + 10% off the same as 60% off?", a: "No. The extra 10% is taken from the already-discounted price, so 50% + 10% equals 55% off in total." },
+      { q: "What is the GST rate in Pakistan?", a: "The standard sales tax rate on most goods is 18%; some goods and services use other rates. Enter the rate on your receipt." },
+    ],
+    related: ["percentage-calculator", "currency-converter", "salary-tax-calculator-pakistan", "invoice-generator"],
+  },
+  {
+    slug: "typing-test",
+    name: "Typing Speed Test",
+    headline: "Typing Speed Test — check your WPM and accuracy",
+    title: "Typing Speed Test — Check Your WPM",
+    category: "Text",
+    tagline: "1-minute test with live WPM and accuracy",
+    description:
+      "Test your typing speed in words per minute with a 30-second, 1-minute or 2-minute test. See live speed and accuracy, beat your personal best and share your score.",
+    engine: "calc",
+    mode: "typing-test",
+    inputs: ["Keyboard"],
+    outputs: ["WPM", "Accuracy"],
+    color: "#2563eb",
+    keywords: ["typing test", "typing speed test", "wpm test", "typing master online", "check typing speed", "1 minute typing test"],
+    steps: [
+      { title: "Choose a duration", body: "30 seconds, 1 minute or 2 minutes." },
+      { title: "Start typing", body: "The timer starts with your first key; mistakes are highlighted." },
+      { title: "See your score", body: "Words per minute and accuracy — then try to beat it." },
+    ],
+    faqs: [
+      { q: "What is a good typing speed?", a: "About 40 WPM is average; 60+ WPM is fast; many office and data-entry jobs ask for 35–45 WPM with high accuracy." },
+      { q: "How is WPM calculated?", a: "Correct characters divided by five (one standard word) per minute, so mistakes lower your speed." },
+    ],
+    related: ["word-counter", "case-converter", "cv-maker", "percentage-calculator"],
+  },
+  /* ------------------------------------ money & home ------------------------------------ */
+  {
+    slug: "gold-rate-calculator",
+    name: "Gold Rate Calculator",
+    headline: "Gold Rate Calculator — price of gold in tola, gram, masha & ratti",
+    title: "Gold Rate Calculator — Tola, Gram, Masha, Ratti",
+    category: "Calculators",
+    tagline: "Gold price by weight, karat and making charges",
+    description:
+      "Work out the price of gold jewellery from today's rate. Enter the weight in tola, masha, ratti or grams, choose 24K, 22K, 21K or 18K, add making charges and see the buying price and the approximate selling value.",
+    engine: "calc",
+    mode: "gold",
+    inputs: ["Rate", "Tola / gram", "Karat"],
+    outputs: ["Price"],
+    color: "#ca8a04",
+    keywords: ["gold rate calculator", "gold price per tola", "tola to gram", "22k gold price calculator", "gold jewellery price calculator", "masha ratti to gram"],
+    steps: [
+      { title: "Enter today's rate", body: "Use the 24K rate per tola, per 10 grams or per gram from your jeweller." },
+      { title: "Enter the weight", body: "Tola, masha, ratti and grams can be combined — e.g. 2 tola 3 masha." },
+      { title: "Choose purity and charges", body: "Pick 24K–18K and add making charges and the shop's selling deduction." },
+    ],
+    faqs: [
+      { q: "How many grams are in one tola?", a: "One tola is 11.6638 grams. It is divided into 12 masha, and each masha into 8 ratti (96 ratti per tola)." },
+      { q: "What is the difference between 24K, 22K and 21K gold?", a: "24K is 99.9% pure gold. 22K is 91.7% gold and 21K is 87.5% — most jewellery in Pakistan is 21K or 22K because pure gold is too soft." },
+      { q: "Why is the selling price lower than the buying price?", a: "Jewellers do not pay back the making charges and usually deduct a percentage for polish and wastage when they buy gold from you." },
+    ],
+    related: ["zakat-calculator", "currency-converter", "unit-converter", "percentage-calculator"],
+  },
+  {
+    slug: "solar-load-calculator",
+    name: "Solar & UPS Load Calculator",
+    headline: "Solar Panel & Inverter Load Calculator — what size system do I need?",
+    title: "Solar & Inverter Load Calculator — System Size",
+    category: "Calculators",
+    tagline: "Inverter, panels and batteries for your home",
+    description:
+      "List your fans, lights, fridge and AC to see your total load, monthly units, the inverter size you need, how many solar panels to install and the batteries for your backup hours — a free planning tool for homes and shops.",
+    engine: "calc",
+    mode: "solar-load",
+    inputs: ["Appliances", "Hours"],
+    outputs: ["kVA", "Panels", "Batteries"],
+    color: "#f59e0b",
+    keywords: ["solar system calculator", "inverter size calculator", "ups load calculator", "how many solar panels do i need", "solar panel calculator pakistan", "home load calculator watts"],
+    steps: [
+      { title: "Add your appliances", body: "Pick common appliances or add your own with their watts, quantity and hours per day." },
+      { title: "Set your situation", body: "Sun hours (about 5 in Pakistan), panel size, backup hours and your per-unit rate." },
+      { title: "Read the system size", body: "Inverter kVA, solar kW and panel count, battery capacity and your monthly units." },
+    ],
+    faqs: [
+      { q: "What size inverter do I need for 4 fans, lights and a fridge?", a: "Usually a 1–1.5 kVA inverter. Add your exact appliances above — the calculator adds 25% headroom over your peak load." },
+      { q: "How many solar panels for a 1.5 ton inverter AC?", a: "A 1.5 ton inverter AC running 8 hours uses about 10 units a day, which needs roughly 2.5 kW of panels — around five 585 W panels — on top of the rest of your load." },
+      { q: "Is this an exact quote?", a: "No — it is a planning estimate. Motors draw extra power when starting, and roofs, shading and wiring differ. Ask a qualified installer to confirm the design." },
+    ],
+    related: ["currency-converter", "loan-emi-calculator", "unit-converter", "percentage-calculator"],
+  },
+  {
+    slug: "fuel-cost-calculator",
+    name: "Fuel Cost Calculator",
+    headline: "Fuel Cost Calculator — petrol cost of a trip & car mileage",
+    title: "Fuel Cost Calculator — Trip Petrol Cost & Mileage",
+    category: "Calculators",
+    tagline: "Petrol cost for any trip, split between friends",
+    description:
+      "Find out how much petrol a trip will cost from the distance, your car's mileage and today's petrol price — one way or return, split between passengers. Also measure your car's real km per litre.",
+    engine: "calc",
+    mode: "fuel",
+    inputs: ["Distance", "Mileage", "Price"],
+    outputs: ["Cost", "Litres"],
+    color: "#dc2626",
+    keywords: ["fuel cost calculator", "petrol cost calculator", "trip cost calculator pakistan", "car mileage calculator", "km per litre calculator"],
+    steps: [
+      { title: "Enter the distance", body: "One-way kilometres; tick return trip to double it." },
+      { title: "Enter mileage and price", body: "Your car's km per litre and today's petrol price." },
+      { title: "See the cost", body: "Total fuel cost, litres needed and cost per person." },
+    ],
+    faqs: [
+      { q: "How do I measure my car's real mileage?", a: "Fill the tank completely and reset the trip meter. Drive normally, fill up again, then divide the kilometres by the litres it took — or use the “My car's mileage” tab." },
+      { q: "Why does my mileage change?", a: "AC use, traffic, tyre pressure, speed and load all change fuel use. Motorway driving at a steady speed is usually the most economical." },
+    ],
+    related: ["currency-converter", "percentage-calculator", "unit-converter", "loan-emi-calculator"],
+  },
+  {
+    slug: "calorie-calculator",
+    name: "Calorie Calculator",
+    headline: "Calorie Calculator — daily calories to lose, gain or maintain weight",
+    title: "Calorie Calculator — Daily Calories (BMR & TDEE)",
+    category: "Calculators",
+    tagline: "How many calories you need each day",
+    description:
+      "Calculate your daily calorie needs from your age, height, weight and activity level, with targets to lose, maintain or gain weight. Uses the Mifflin-St Jeor equation recommended by dietitians.",
+    engine: "calc",
+    mode: "calories",
+    inputs: ["Age", "Height", "Weight", "Activity"],
+    outputs: ["kcal/day"],
+    color: "#16a34a",
+    keywords: ["calorie calculator", "tdee calculator", "bmr calculator", "how many calories should i eat", "calories to lose weight", "daily calorie intake"],
+    steps: [
+      { title: "Enter your details", body: "Sex, age, weight and height in cm or feet and inches." },
+      { title: "Choose your activity", body: "From little exercise to a physical job." },
+      { title: "Pick a goal", body: "See calories to lose 0.25–0.5 kg a week, maintain or gain." },
+    ],
+    faqs: [
+      { q: "What is BMR and TDEE?", a: "BMR is what your body burns at complete rest. TDEE adds your daily activity — eat about that much to keep the same weight." },
+      { q: "How fast should I lose weight?", a: "About 0.25–0.5 kg a week is safe and sustainable for most adults; that is roughly 250–500 kcal below your TDEE." },
+    ],
+    related: ["bmi-calculator", "age-calculator", "percentage-calculator", "unit-converter"],
+  },
+
+  /* ------------------------------------ everyday & language ------------------------------------ */
+  {
+    slug: "urdu-keyboard",
+    name: "Urdu Keyboard",
+    headline: "Urdu Keyboard Online — type in Urdu with Roman letters",
+    title: "Urdu Keyboard Online — Easy Urdu Typing",
+    category: "Text",
+    tagline: "Type Urdu with an English keyboard",
+    description:
+      "Type in Urdu online using your English keyboard — Roman letters turn into Urdu script as you type — or tap the on-screen Urdu keyboard on your phone. Copy the text to WhatsApp, Facebook, Word or InPage.",
+    engine: "utility",
+    mode: "urdu-keyboard",
+    inputs: ["Keyboard"],
+    outputs: ["Urdu text"],
+    color: "#059669",
+    keywords: ["urdu keyboard", "urdu typing online", "roman urdu to urdu", "type in urdu", "urdu likhne wala", "online urdu editor"],
+    steps: [
+      { title: "Start typing", body: "Type phonetically with English letters — e.g. “salam” becomes سلام." },
+      { title: "Use the on-screen keys", body: "On a phone, tap the Urdu keyboard to add any letter." },
+      { title: "Copy and share", body: "Copy to WhatsApp, Facebook or a document, or save it as a text file." },
+    ],
+    faqs: [
+      { q: "How do I type letters like ٹ, ڈ, ڑ and ں?", a: "Use capital letters: T → ٹ, D → ڈ, R → ڑ, N → ں. The cheat-sheet under the editor lists every key." },
+      { q: "Can I paste the text into InPage or MS Word?", a: "Yes — the text is standard Unicode Urdu, so it pastes into Word, Google Docs, WhatsApp and Facebook. Older InPage versions may need Unicode support enabled." },
+    ],
+    related: ["voice-typing", "image-to-text", "text-to-speech", "word-counter"],
+  },
+  {
+    slug: "voice-typing",
+    name: "Voice Typing",
+    headline: "Voice Typing — speech to text in Urdu, English & more",
+    title: "Voice Typing Online — Urdu & English Speech to Text",
+    category: "Text",
+    tagline: "Speak and watch your words appear",
+    description:
+      "Type with your voice in Urdu, English, Hindi, Arabic and Punjabi. Speak into your microphone and the text appears live — then edit, copy or share it. Free, no signup.",
+    engine: "utility",
+    mode: "voice-typing",
+    inputs: ["Microphone"],
+    outputs: ["Text"],
+    color: "#7c3aed",
+    keywords: ["voice typing", "speech to text", "urdu voice typing", "voice to text online", "bol kar likhna", "dictation online"],
+    steps: [
+      { title: "Pick your language", body: "Urdu, English (US, UK, India), Hindi, Arabic and more." },
+      { title: "Tap the mic and speak", body: "Allow microphone access; your words appear as you talk." },
+      { title: "Edit and copy", body: "Fix any words, add punctuation, then copy, save or share." },
+    ],
+    faqs: [
+      { q: "Which browsers support voice typing?", a: "Chrome and Edge on Android, Windows and Mac work best. Safari has partial support; Firefox does not support it yet." },
+      { q: "Is my voice recorded or stored?", a: "SnapGrab does not record or store anything. The browser's built-in speech service (Google in Chrome) converts your speech to text." },
+    ],
+    related: ["urdu-keyboard", "text-to-speech", "word-counter", "image-to-text"],
+  },
+  {
+    slug: "text-to-speech",
+    name: "Text to Speech",
+    headline: "Text to Speech — read any text aloud online",
+    title: "Text to Speech Online — Free Natural Voices",
+    category: "Text",
+    tagline: "Listen to any text in many voices",
+    description:
+      "Paste any text and listen to it read aloud. Choose from the voices on your device, change speed and pitch, and follow along as each word is highlighted — great for proofreading, learning and accessibility.",
+    engine: "utility",
+    mode: "text-to-speech",
+    inputs: ["Text"],
+    outputs: ["Speech"],
+    color: "#0284c7",
+    keywords: ["text to speech", "read aloud online", "tts free", "text to voice", "listen to text", "urdu text to speech"],
+    steps: [
+      { title: "Paste your text", body: "Any article, notes or message." },
+      { title: "Choose a voice", body: "Pick a language and voice; adjust speed and pitch." },
+      { title: "Press play", body: "Pause, resume or stop at any time; words are highlighted as they are read." },
+    ],
+    faqs: [
+      { q: "Can I download the audio as MP3?", a: "Not with this tool — it uses your browser's built-in voices, which can play but not export audio." },
+      { q: "Why are there different voices on my phone and laptop?", a: "Voices come from your operating system. Windows, Android, iOS and macOS each include their own set, and you can add more in your device's language settings." },
+    ],
+    related: ["voice-typing", "urdu-keyboard", "word-counter", "typing-test"],
+  },
+  {
+    slug: "tasbeeh-counter",
+    name: "Digital Tasbeeh Counter",
+    headline: "Digital Tasbeeh Counter — online tasbih for dhikr",
+    title: "Digital Tasbeeh Counter Online — Tasbih for Dhikr",
+    category: "Everyday",
+    tagline: "Tap to count your dhikr with targets",
+    description:
+      "A simple digital tasbeeh: tap anywhere to count SubhanAllah, Alhamdulillah, Allahu Akbar and more, with 33/99/100 targets, gentle vibration, rounds and your totals saved on your phone.",
+    engine: "utility",
+    mode: "tasbeeh",
+    inputs: ["Tap"],
+    outputs: ["Count"],
+    color: "#0d9488",
+    keywords: ["tasbeeh counter", "digital tasbih", "online tasbeeh", "dhikr counter", "tasbih counter app", "zikr counter"],
+    steps: [
+      { title: "Choose a dhikr", body: "SubhanAllah, Alhamdulillah, Allahu Akbar, Astaghfirullah, Durood and more." },
+      { title: "Set a target", body: "33, 99, 100 or your own number; the phone vibrates when you reach it." },
+      { title: "Tap to count", body: "Tap anywhere on the counter, or press Space on a keyboard." },
+    ],
+    faqs: [
+      { q: "Is my count saved?", a: "Yes — totals are saved on your device, so they are still there when you come back. Nothing is sent to our server." },
+      { q: "Does it work offline?", a: "Once the page has loaded it keeps counting without internet." },
+    ],
+    related: ["prayer-times", "qibla-direction", "ramadan-timetable", "hijri-date-converter"],
+  },
+  {
+    slug: "online-timer",
+    name: "Stopwatch & Timer",
+    headline: "Online Stopwatch & Countdown Timer — with alarm and Pomodoro",
+    title: "Online Stopwatch & Timer with Alarm",
+    category: "Everyday",
+    tagline: "Stopwatch, countdown and Pomodoro in one",
+    description:
+      "A free online stopwatch with laps, a countdown timer with an alarm, and a Pomodoro timer for focused study and work sessions. Big, clear digits and a full-screen mode for classrooms and workouts.",
+    engine: "utility",
+    mode: "timer",
+    inputs: ["Time"],
+    outputs: ["Alarm"],
+    color: "#4f46e5",
+    keywords: ["online timer", "stopwatch", "countdown timer", "timer with alarm", "pomodoro timer", "5 minute timer"],
+    steps: [
+      { title: "Pick a mode", body: "Stopwatch, countdown or Pomodoro." },
+      { title: "Start", body: "Use presets like 1, 5, 10 or 25 minutes, or enter your own time." },
+      { title: "Go full screen", body: "Show big digits for a class, workout or presentation." },
+    ],
+    faqs: [
+      { q: "Will the alarm ring if I switch tabs?", a: "Yes — the timer keeps exact time in the background and plays the alarm, and can show a notification if you allow it." },
+      { q: "What is the Pomodoro technique?", a: "Work for 25 minutes, take a 5-minute break, and repeat — a longer break after four rounds. It helps you focus without burning out." },
+    ],
+    related: ["typing-test", "date-calculator", "age-calculator", "spin-the-wheel"],
+  },
+  {
+    slug: "spin-the-wheel",
+    name: "Spin the Wheel",
+    headline: "Spin the Wheel — random name picker and lucky draw",
+    title: "Spin the Wheel — Random Name Picker",
+    category: "Everyday",
+    tagline: "Pick a random winner, name or number",
+    description:
+      "Enter names or options and spin a colourful wheel to pick a random winner — perfect for giveaways, classroom picks, lucky draws and decisions. Includes a random number generator, coin flip and dice.",
+    engine: "utility",
+    mode: "spin-wheel",
+    inputs: ["Names"],
+    outputs: ["Winner"],
+    color: "#e11d48",
+    keywords: ["spin the wheel", "random name picker", "wheel of names", "lucky draw online", "random winner picker", "giveaway picker"],
+    steps: [
+      { title: "Add names", body: "One per line or separated by commas." },
+      { title: "Spin", body: "The wheel slows down and lands on a random winner." },
+      { title: "Share the result", body: "Remove the winner for the next round, or share it with your group." },
+    ],
+    faqs: [
+      { q: "Is the result really random?", a: "Yes. Each spin uses your browser's random number generator, so every entry has an equal chance." },
+      { q: "Can I use it for Instagram giveaways?", a: "Yes — paste the usernames of the people who entered, spin, and screen-record the result to show it was fair." },
+    ],
+    related: ["online-timer", "password-generator", "qr-code-generator", "typing-test"],
+  },
 ];
 
 export const TOOL_MAP: Record<string, Tool> = Object.fromEntries(TOOLS.map((t) => [t.slug, t]));
 
-export const TOOL_CATEGORIES: ToolCategory[] = ["Image", "PDF", "Calculators", "Text", "Generators", "Audio", "Video"];
+export const TOOL_CATEGORIES: ToolCategory[] = ["Image", "Print", "PDF", "Calculators", "Text", "Everyday", "Generators", "Audio", "Video"];
 
 export function toolsByCategory(category: ToolCategory) {
   return TOOLS.filter((t) => t.category === category);

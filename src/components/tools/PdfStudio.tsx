@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { trackEvent } from "@/lib/track-event";
+import ShareSheet, { urlsToFiles } from "@/components/ShareSheet";
 import { formatBytes } from "./ImageStudio";
 
 type Item = {
@@ -461,6 +462,12 @@ export default function PdfStudio({ tool }: { tool: Tool }) {
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Save</span>
                   </a>
+                  <ShareSheet
+                    variant="icon"
+                    title={o.name}
+                    text={`Made with the free ${tool.name} on SnapGrab`}
+                    getFiles={() => urlsToFiles([{ url: o.url, name: o.name }])}
+                  />
                 </div>
               ))}
             </div>

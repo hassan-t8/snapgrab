@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Check, Copy, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { trackEvent } from "@/lib/track-event";
+import ShareSheet, { urlsToFiles } from "@/components/ShareSheet";
 
 /* ------------------------------------------------------------------ *
  * helpers
@@ -382,6 +383,11 @@ export default function GeneratorStudio({ tool }: { tool: Tool }) {
               >
                 <Download className="h-4 w-4" /> SVG
               </a>
+              <ShareSheet
+                title="QR code"
+                text={`QR code made with the free ${tool.name} on SnapGrab`}
+                getFiles={() => urlsToFiles([{ url: qrPng, name: "snapgrab-qr.png" }])}
+              />
             </div>
           </div>
         )}

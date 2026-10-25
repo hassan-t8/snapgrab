@@ -70,7 +70,7 @@ export function softwareAppJsonLd(params: { name: string; description: string; u
   };
 }
 
-export function organizationJsonLd() {
+export function organizationJsonLd(opts: { email?: string; sameAs?: string[] } = {}) {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -80,9 +80,10 @@ export function organizationJsonLd() {
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
-      email: "support@snapgrab.app",
+      email: opts.email ?? "support@snapgrab.app",
       url: `${siteUrl()}/contact`,
     },
+    ...(opts.sameAs?.length ? { sameAs: opts.sameAs } : {}),
   };
 }
 
