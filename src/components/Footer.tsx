@@ -85,6 +85,7 @@ export default async function Footer() {
             links={[
               { href: "/about", label: "About us" },
               { href: "/tools", label: "All tools" },
+              { href: "/rates", label: "Today's rates" },
               { href: "/contact", label: "Contact" },
               { href: "/blog", label: "Blog" },
               { href: "/faq", label: "FAQ" },

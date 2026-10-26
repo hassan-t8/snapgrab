@@ -10,6 +10,7 @@ import { PLATFORMS } from "@/lib/platforms";
 import { ToolIcon } from "@/lib/tool-icons";
 import type { ServiceSummary } from "@/lib/services";
 import { trackEvent } from "@/lib/track-event";
+import { getFavourites, getRecent } from "@/lib/my-tools";
 
 const OPEN_EVENT = "sg:search";
 
@@ -83,6 +84,7 @@ export default function ToolSearch({ services }: { services?: ServiceSummary }) 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [mine, setMine] = useState<{ fav: string[]; recent: string[] }>({ fav: [], recent: [] });
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -113,7 +115,10 @@ export default function ToolSearch({ services }: { services?: ServiceSummary }) 
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focus = requestAnimationFrame(() => inputRef.current?.focus());
+    const focus = requestAnimationFrame(() => {
+      setMine({ fav: getFavourites(), recent: getRecent() });
+      inputRef.current?.focus();
+    });
     return () => {
       cancelAnimationFrame(focus);
       document.body.style.overflow = prev;
@@ -123,8 +128,13 @@ export default function ToolSearch({ services }: { services?: ServiceSummary }) 
   const results = useMemo(() => {
     const words = norm(query).split(" ").filter(Boolean);
     if (!words.length) {
-      const popular = POPULAR.map((s) => catalog.find((r) => r.tool?.slug === s)).filter(Boolean) as Result[];
-      return popular.map((r) => ({ ...r, group: "Popular tools" }));
+      const pick = (slugs: string[], group: string) =>
+        slugs.flatMap((s) => catalog.filter((r) => r.tool?.slug === s)).map((r) => ({ ...r, group }));
+      const fav = pick(mine.fav, "Your favourites");
+      const recent = pick(mine.recent.filter((s) => !mine.fav.includes(s)), "Recently used").slice(0, 5);
+      const seen = new Set([...fav, ...recent].map((r) => r.href));
+      const popular = pick(POPULAR, "Popular tools").filter((r) => !seen.has(r.href));
+      return [...fav, ...recent, ...popular];
     }
     return catalog
       .map((r) => {
@@ -135,7 +145,7 @@ export default function ToolSearch({ services }: { services?: ServiceSummary }) 
       .sort((a, b) => b.s - a.s)
       .slice(0, 12)
       .map((x) => x.r);
-  }, [query, catalog]);
+  }, [query, catalog, mine]);
 
   const go = (r: Result) => {
     trackEvent("search", `${query.slice(0, 40)} → ${r.href.split("/").pop()}`);

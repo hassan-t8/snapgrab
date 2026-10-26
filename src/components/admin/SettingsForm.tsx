@@ -57,6 +57,23 @@ export default function SettingsForm({ initial }: { initial: Record<string, stri
       </label>
 
       <fieldset className="rounded-2xl border border-[var(--line)] p-4">
+        <legend className="px-1 text-sm font-bold">Quote requests (leads)</legend>
+        <p className="mb-3 text-xs text-muted">
+          Where “Get a free solar quote” requests go. Leads are always saved in Admin → Leads; email needs SMTP set up in Integrations.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold">Email new leads to</span>
+            <input value={values.lead_email ?? ""} onChange={set("lead_email")} placeholder="sales@wepowerenergysolutions.com" inputMode="email" className={field} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold">WhatsApp number for leads</span>
+            <input value={values.lead_whatsapp ?? ""} onChange={set("lead_whatsapp")} placeholder="923001234567" inputMode="tel" className={field} />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="rounded-2xl border border-[var(--line)] p-4">
         <legend className="px-1 text-sm font-bold">Social profiles</legend>
         <p className="mb-3 text-xs text-muted">
           Shown as icons in the footer and told to Google as your official profiles. Leave empty to hide an icon.

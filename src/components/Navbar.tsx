@@ -14,6 +14,7 @@ import { openToolSearch } from "./ToolSearch";
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/tools", label: "Tools" },
+  { href: "/rates", label: "Rates" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },

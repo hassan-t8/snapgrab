@@ -18,6 +18,16 @@ import BgRemoveStudio from "@/components/tools/BgRemoveStudio";
 import SignatureStudio from "@/components/tools/SignatureStudio";
 import CropStudio from "@/components/tools/CropStudio";
 import UtilityStudio from "@/components/tools/UtilityStudio";
+import QuranStudio from "@/components/tools/QuranStudio";
+import NamesStudio from "@/components/tools/NamesStudio";
+import CountdownStudio from "@/components/tools/CountdownStudio";
+import VideoStudio from "@/components/tools/VideoStudio";
+import FormPhotoStudio from "@/components/tools/FormPhotoStudio";
+import CollageStudio from "@/components/tools/CollageStudio";
+import PdfCompressStudio from "@/components/tools/PdfCompressStudio";
+import CardStudio from "@/components/tools/CardStudio";
+import CoverLetterStudio from "@/components/tools/CoverLetterStudio";
+import MenuStudio from "@/components/tools/MenuStudio";
 import Downloader from "@/components/Downloader";
 import AdSlot from "@/components/AdSlot";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
@@ -26,6 +36,8 @@ import { TOOLS, TOOL_CATEGORIES, TOOL_MAP, relatedTools } from "@/lib/tools";
 import { ToolIcon } from "@/lib/tool-icons";
 import { ToolSearchBox } from "@/components/ToolSearch";
 import ShareSheet from "@/components/ShareSheet";
+import PromoBox from "@/components/PromoBox";
+import { FavouriteButton } from "@/components/MyTools";
 import { siteUrl, breadcrumbJsonLd, faqJsonLd, howToJsonLd, jsonLd, ogImage, softwareAppJsonLd } from "@/lib/seo";
 import { getEnabledTools, getServiceState } from "@/lib/services";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
@@ -177,7 +189,8 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
             </div>
           </Reveal>
           <Reveal delay={0.24}>
-            <div className="mt-5 flex justify-center">
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <FavouriteButton slug={tool.slug} name={tool.name} />
               <ShareSheet title={tool.title ?? tool.headline} text={`${tool.name} — ${tool.tagline}. Free on SnapGrab`} url={`${siteUrl()}/tools/${tool.slug}`} label="Share this tool" />
             </div>
           </Reveal>
@@ -212,6 +225,26 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
             )
           ) : tool.engine === "utility" ? (
             <UtilityStudio tool={tool} />
+          ) : tool.engine === "quran" ? (
+            <QuranStudio tool={tool} />
+          ) : tool.engine === "names" ? (
+            <NamesStudio tool={tool} />
+          ) : tool.engine === "countdown" ? (
+            <CountdownStudio tool={tool} />
+          ) : tool.engine === "video" ? (
+            <VideoStudio tool={tool} />
+          ) : tool.engine === "forms" ? (
+            <FormPhotoStudio tool={tool} />
+          ) : tool.engine === "collage" ? (
+            <CollageStudio tool={tool} />
+          ) : tool.engine === "pdf-compress" ? (
+            <PdfCompressStudio tool={tool} />
+          ) : tool.engine === "cards" ? (
+            <CardStudio tool={tool} />
+          ) : tool.engine === "career" ? (
+            <CoverLetterStudio tool={tool} />
+          ) : tool.engine === "menu" ? (
+            <MenuStudio tool={tool} />
           ) : tool.engine === "pdf-pages" ? (
             <PdfPagesStudio tool={tool} />
           ) : tool.engine === "doc" ? (
@@ -262,7 +295,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
       </section>
 
       {/* voice typing goes through the browser's speech service, so it is not "nothing leaves your device" */}
-      {!tool.provider && !tool.engine.startsWith("link-") && tool.mode !== "voice-typing" && (
+      {!tool.provider && !tool.engine.startsWith("link-") && tool.mode !== "voice-typing" && tool.engine !== "quran" && (
         <section className="px-4 pb-6 sm:px-6 lg:px-8">
           <Reveal className="mx-auto max-w-4xl">
             <div className="flex items-start gap-3 rounded-2xl border border-accent-500/30 bg-accent-500/5 p-6">
@@ -270,7 +303,9 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
               <p className="text-sm leading-relaxed text-muted">
                 <strong className="text-[var(--fg)]">Your data stays on your device.</strong> This tool runs entirely in
                 your browser — nothing is uploaded and nothing is stored on our servers.{" "}
-                {tool.engine === "image-ai" && (tool.mode === "ocr" || tool.mode === "remove-bg")
+                {tool.engine === "video"
+                  ? "The first time, it downloads the video engine (about 9 MB) once; after that it is cached."
+                  : tool.engine === "image-ai" && (tool.mode === "ocr" || tool.mode === "remove-bg")
                   ? "The first time, it downloads its AI model or language data once; after that it is cached."
                   : "It keeps working even if your connection drops mid-way."}{" "}
                 We record only an anonymous count of how many times the tool ran.
@@ -279,6 +314,8 @@ export default async function ToolPage({ params }: PageProps<"/tools/[slug]">) {
           </Reveal>
         </section>
       )}
+
+      <PromoBox category={tool.category} />
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">

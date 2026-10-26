@@ -52,6 +52,8 @@ export default async function SettingsPage() {
             site_tagline: map.site_tagline ?? "",
             contact_email: map.contact_email ?? "",
             announcement: map.announcement ?? "",
+            lead_email: map.lead_email ?? "",
+            lead_whatsapp: map.lead_whatsapp ?? "",
             ...Object.fromEntries(SOCIALS.map((s) => [s.key, map[s.key] ?? ""])),
           }}
         />

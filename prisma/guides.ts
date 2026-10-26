@@ -183,4 +183,90 @@ Open the result in the [Passport Photo Maker](/tools/passport-photo-maker), choo
 
 The background is removed inside your browser. Your photo is **never uploaded**, so it is safe to use with personal photos.`,
   },
+  {
+    slug: "how-to-compress-photo-to-20kb-for-online-forms",
+    title: "How to Compress a Photo to 20 KB, 50 KB or 100 KB for Online Forms",
+    excerpt:
+      "Job portals, university admissions and government forms often reject photos over 20–100 KB. Here is how to get under the limit without making your photo blurry.",
+    tags: "photo,forms,guide",
+    content: `## Why forms reject your photo
+
+Most online application portals set a strict size limit for the photo and signature — often **20 KB, 50 KB or 100 KB** — and sometimes exact pixel dimensions too. A phone photo is usually 2–5 MB, so it gets rejected.
+
+## The quick way
+
+1. Open [Compress Image to KB](/tools/compress-image-to-kb) (or the [20 KB](/tools/compress-image-to-20kb), [50 KB](/tools/compress-image-to-50kb) or [100 KB](/tools/compress-image-to-100kb) page).
+2. Add your photo and pick the size your form asks for.
+3. Download the result — the tool shows the exact size, so you can see it is under the limit.
+
+It first lowers the JPEG quality as little as possible, and only shrinks the dimensions if it has to, so faces stay sharp.
+
+## If the form asks for exact pixels
+
+Some forms say something like *"Photo: 200 × 230 pixels, maximum 30 KB"*. Use the [Photo Resizer for Online Forms](/tools/photo-resizer-for-online-forms): type the width, height and maximum KB from your form, frame your face and download. For signatures, the [Signature Resizer](/tools/signature-resizer) also whitens the paper and darkens the ink so it scans cleanly.
+
+## Tips
+
+- Always read the **current** instructions on the form — sizes change between recruitment drives.
+- Use a plain light background; the [Background Remover](/tools/remove-background) can make it white.
+- Keep the original photo; compress a copy for each form.`,
+  },
+  {
+    slug: "how-to-make-qr-code-menu-for-restaurant-free",
+    title: "How to Make a Free QR Code Menu for Your Restaurant or Café",
+    excerpt:
+      "Customers scan a QR code on the table and see your menu on their phone — no app, no monthly fee. Here is how to make one in ten minutes.",
+    tags: "qr code,restaurant,business",
+    content: `## What you get
+
+- A **QR code** for tables, the counter or your shop window
+- A **mobile menu** that opens instantly when scanned — with sections, prices, a search box and Call/WhatsApp buttons
+- A **printable table card** and a **full menu PDF**
+
+## Step by step
+
+1. Open the free [QR Menu Maker](/tools/qr-menu-maker).
+2. Type your restaurant name, phone and WhatsApp number.
+3. Add categories (Starters, BBQ, Karahi, Drinks…) and items with prices. Short descriptions are optional.
+4. Pick a colour theme and check the live phone preview.
+5. Download the QR code, print the table cards (A6 or four per A4 sheet) and place them on your tables.
+
+## How it works without a monthly fee
+
+The whole menu is stored **inside the QR link itself**, so there is no account and nothing to pay for hosting. The trade-off: when prices change, you make a new QR code and reprint the cards. Keep descriptions short so the code stays easy to scan.
+
+## Tips
+
+- Print the cards at least 6 cm wide and keep them flat and well lit.
+- Put the WhatsApp number on the menu — many customers order takeaway that way.
+- Add your opening hours and address at the bottom.`,
+  },
+  {
+    slug: "how-to-calculate-matric-percentage-and-check-result",
+    title: "How to Calculate Your Matric and Inter Percentage (and Check Your Result)",
+    excerpt:
+      "Turn your marks into a percentage and grade in seconds, understand the new IBCC grading, and find your board's official result website.",
+    tags: "education,matric,result",
+    content: `## The formula
+
+**Percentage = marks obtained ÷ total marks × 100**
+
+For example, 945 out of 1100 = 945 ÷ 1100 × 100 = **85.91%**.
+
+The [Matric & Inter Percentage Calculator](/tools/matric-percentage-calculator) does this instantly and also gives your grade.
+
+## Grades: old and new
+
+Most boards used the classic scale — A+ for 80% and above, A for 70–79%, B for 60–69%, C for 50–59%, D for 40–49% and E for 33–39%. IBCC has introduced a finer scale from **A++ (95% and above)** down to **E (33–39%)**, which boards are adopting. The calculator shows both; the grade printed on your result card is the official one.
+
+## Where to check your result
+
+Each board announces results on its own official website — FBISE for federal students, and the BISE boards in Punjab, KP, Sindh and Balochistan for everyone else. The calculator page lists links to every board's official site.
+
+## Next steps
+
+- Applying to medical or engineering colleges? Work out your merit with the [Aggregate Calculator](/tools/aggregate-calculator) (MDCAT, ECAT, NUST).
+- University students can track their GPA with the [CGPA Calculator](/tools/cgpa-calculator).
+- Need a CV for your first job? Try the free [CV Maker](/tools/cv-maker) and [Cover Letter Generator](/tools/cover-letter-generator).`,
+  },
 ];

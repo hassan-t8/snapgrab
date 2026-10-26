@@ -222,3 +222,45 @@ model Event {
   @@index([name])
   @@index([createdAt])
 }
+
+/// Daily prices entered in Admin → Daily rates (gold, petrol, open-market dollar …)
+model RateEntry {
+  id        String   @id @default(cuid())
+  key       String // see RATE_DEFS in src/lib/rates.ts
+  value     Float
+  date      DateTime // the day the price applies to (UTC midnight)
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([key, date])
+  @@index([key, date])
+}
+
+/// Enquiries from tool pages, e.g. "Get a free solar quote" on the solar load calculator
+model Lead {
+  id        String   @id @default(cuid())
+  kind      String // solar …
+  name      String
+  phone     String
+  city      String?
+  message   String?
+  details   String? // JSON snapshot of the calculator result
+  status    String   @default("new") // new | contacted | closed
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+/// Sponsored / affiliate recommendations shown on tool pages of matching categories
+model Promo {
+  id         String   @id @default(cuid())
+  title      String
+  body       String?
+  url        String
+  cta        String   @default("View deal")
+  categories String   @default("") // comma-separated tool categories, empty = all
+  active     Boolean  @default(true)
+  clicks     Int      @default(0)
+  createdAt  DateTime @default(now())
+}

@@ -17,7 +17,15 @@ const STORAGE_KEY = "sg-cv-draft";
 
 const field = "w-full rounded-xl surface px-4 py-2.5 text-sm outline-none transition-all focus:border-brand-400";
 
-type Template = "classic" | "modern";
+type Template = "classic" | "modern" | "compact" | "professional";
+
+const TEMPLATES: { id: Template; label: string; hint: string }[] = [
+  { id: "classic", label: "Classic", hint: "Centred, black & white" },
+  { id: "modern", label: "Modern", hint: "Colour header band" },
+  { id: "compact", label: "Compact", hint: "Dense one-page layout" },
+  { id: "professional", label: "Professional", hint: "Serif, thin rules" },
+];
+const TEMPLATE_IDS = TEMPLATES.map((t) => t.id);
 
 type Experience = { id: string; title: string; company: string; location: string; start: string; end: string; current: boolean; bullets: string };
 type Education = { id: string; degree: string; institute: string; location: string; start: string; end: string; grade: string };
@@ -186,6 +194,9 @@ function skillLines(text: string) {
     });
 }
 
+/** The Compact template's single skills line: "Group: a, b  •  Group: c, d". */
+const compactSkills = (skills: ReturnType<typeof skillLines>) => skills.map((s) => (s.group ? `${s.group}: ${s.items}` : s.items)).join("  •  ");
+
 function hexToRgb(hex: string) {
   const m = hex.trim().replace(/^#/, "");
   const full = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
@@ -216,7 +227,7 @@ function normalise(raw: unknown): Cv | null {
   const r = raw as Record<string, unknown>;
   const p = (r.personal ?? {}) as Record<string, unknown>;
   return {
-    template: r.template === "modern" ? "modern" : "classic",
+    template: TEMPLATE_IDS.includes(r.template as Template) ? (r.template as Template) : "classic",
     accent: typeof r.accent === "string" && hexToRgb(r.accent) ? r.accent : DEFAULT_ACCENT,
     personal: {
       name: str(p.name),
@@ -402,6 +413,61 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number, first
 
 type EntrySpec = { title: string; right?: string; sub?: string; bullets: string[] };
 
+/** Per-template typography. Classic and Modern keep their original metrics. */
+type PdfLook = {
+  margin: number;
+  title: { size: number; lh: number };
+  sub: { size: number; lh: number };
+  bul: { size: number; lh: number; indent: number };
+  right: number;
+  para: { size: number; lh: number };
+  sec: { gap: number; lh: number; size: number; ruleGap: number; after: number; rule: number };
+  entryGap: number;
+};
+
+const PDF_LOOKS: Record<Template, PdfLook> = {
+  classic: {
+    margin: 45.35, // 16 mm
+    title: { size: 10.5, lh: 14 },
+    sub: { size: 10, lh: 13.5 },
+    bul: { size: 10, lh: 13.5, indent: 11 },
+    right: 9.5,
+    para: { size: 10, lh: 14 },
+    sec: { gap: 10, lh: 14, size: 11, ruleGap: 5, after: 7, rule: 0.7 },
+    entryGap: 8,
+  },
+  modern: {
+    margin: 45.35,
+    title: { size: 10.5, lh: 14 },
+    sub: { size: 10, lh: 13.5 },
+    bul: { size: 10, lh: 13.5, indent: 11 },
+    right: 9.5,
+    para: { size: 10, lh: 14 },
+    sec: { gap: 10, lh: 14, size: 11, ruleGap: 5, after: 7, rule: 1.1 },
+    entryGap: 8,
+  },
+  compact: {
+    margin: 36, // 12.7 mm
+    title: { size: 10, lh: 12.5 },
+    sub: { size: 9.5, lh: 12 },
+    bul: { size: 9.5, lh: 12, indent: 10 },
+    right: 9,
+    para: { size: 9.5, lh: 12.5 },
+    sec: { gap: 7, lh: 12.5, size: 10, ruleGap: 3.5, after: 5, rule: 0.6 },
+    entryGap: 5,
+  },
+  professional: {
+    margin: 48, // 17 mm
+    title: { size: 11, lh: 14 },
+    sub: { size: 10.5, lh: 13.5 },
+    bul: { size: 10.5, lh: 13.5, indent: 12 },
+    right: 10,
+    para: { size: 10.5, lh: 14 },
+    sec: { gap: 10, lh: 15, size: 11.5, ruleGap: 4, after: 7, rule: 0.5 },
+    entryGap: 7,
+  },
+};
+
 async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
   const doc = await PDFDocument.create();
@@ -412,22 +478,28 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
   doc.setSubject("Curriculum vitae / resume");
   doc.setCreator("SnapGrab CV Builder");
 
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const tpl = cv.template;
+  const L = PDF_LOOKS[tpl] ?? PDF_LOOKS.classic;
+  const serif = tpl === "professional";
+  const font = await doc.embedFont(serif ? StandardFonts.TimesRoman : StandardFonts.Helvetica);
+  const bold = await doc.embedFont(serif ? StandardFonts.TimesRomanBold : StandardFonts.HelveticaBold);
+  const italic = serif ? await doc.embedFont(StandardFonts.TimesRomanItalic) : font;
 
   const W = 595.28;
   const H = 841.89;
-  const M = 45.35; // 16 mm
+  const M = L.margin;
   const CW = W - 2 * M;
-  const BOTTOM = M;
-  const modern = cv.template === "modern";
+  const BOTTOM = Math.max(M, 40);
+  const modern = tpl === "modern";
+  const coloured = tpl !== "classic";
   const ac = hexToRgb(cv.accent) ?? hexToRgb(DEFAULT_ACCENT)!;
   const accent = rgb(ac.r / 255, ac.g / 255, ac.b / 255);
-  const ink = modern ? rgb(0.1, 0.1, 0.12) : rgb(0, 0, 0);
+  const ink = tpl === "classic" ? rgb(0, 0, 0) : rgb(0.1, 0.1, 0.12);
   const subInk = rgb(0.22, 0.22, 0.25);
   const muted = rgb(0.36, 0.36, 0.4);
   const white = rgb(1, 1, 1);
-  const headInk = modern && !isLight(cv.accent) ? accent : ink; // light accents fall back to dark text for contrast
+  const headInk = coloured && !isLight(cv.accent) ? accent : ink; // light accents fall back to dark text for contrast
+  const ruleInk = coloured ? accent : ink;
 
   let page = doc.addPage([W, H]);
   let y = H - M;
@@ -454,10 +526,20 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
     y -= lh;
     return y + lh * 0.26;
   };
+  const rule = (thickness: number, color = ruleInk) => page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness, color });
 
   /* ---------------- header ---------------- */
   const contacts = joinParts([p.email, p.phone, p.location, p.linkedin, p.website], "  |  ");
   const nameText = name || "Your Name";
+  const centred = (s: string, size: number, lh: number, f: PDFFont, color = ink) => {
+    for (const l of wrap(s, f, size, CW)) {
+      const base = nextLine(lh);
+      draw(l, M + (CW - f.widthOfTextAtSize(l, size)) / 2, base, size, f, color);
+    }
+  };
+  const leftAligned = (s: string, size: number, lh: number, f: PDFFont, color = ink) => {
+    for (const l of wrap(s, f, size, CW)) draw(l, M, nextLine(lh), size, f, color);
+  };
 
   if (modern) {
     const onAccent = isLight(cv.accent) ? rgb(0.08, 0.08, 0.1) : white;
@@ -484,13 +566,32 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
       draw(l, M, hy + 3, 9.5, font, onAccent);
     });
     y = H - blockH - 8;
+  } else if (tpl === "compact") {
+    leftAligned(nameText, 19, 22, bold, ink);
+    if (p.headline.trim()) leftAligned(p.headline, 10.5, 13.5, font, headInk);
+    if (contacts) {
+      y -= 1;
+      leftAligned(contacts, 9, 12, font, subInk);
+    }
+    y -= 5;
+    rule(1);
+    y -= 1;
+  } else if (serif) {
+    centred(nameText, 24, 28, bold, ink);
+    if (p.headline.trim()) {
+      y -= 1;
+      centred(p.headline, 12, 15.5, italic, subInk);
+    }
+    if (contacts) {
+      y -= 3;
+      centred(contacts, 10, 13.5, font, subInk);
+    }
+    y -= 8;
+    rule(0.5);
+    y -= 2.2;
+    rule(0.5);
+    y -= 2;
   } else {
-    const centred = (s: string, size: number, lh: number, f: PDFFont, color = ink) => {
-      for (const l of wrap(s, f, size, CW)) {
-        const base = nextLine(lh);
-        draw(l, M + (CW - f.widthOfTextAtSize(l, size)) / 2, base, size, f, color);
-      }
-    };
     centred(nameText, 22, 27, bold);
     if (p.headline.trim()) {
       y -= 2;
@@ -501,34 +602,37 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
       centred(contacts, 9.5, 13, font, subInk);
     }
     y -= 8;
-    page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 1.2, color: ink });
+    rule(1.2, ink);
     y -= 2;
   }
 
   /* ---------------- building blocks ---------------- */
-  const SEC_H = 10 + 14 + 5 + 7;
+  const S = L.sec;
+  const SEC_H = S.gap + S.lh + S.ruleGap + S.after;
   const section = (title: string, keep: number) => {
     ensure(SEC_H + keep);
-    if (!atTop()) y -= 10;
-    y -= 14;
-    draw(title.toUpperCase(), M, y + 3, 11, bold, headInk);
-    y -= 5;
-    page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: modern ? 1.1 : 0.7, color: modern ? accent : ink });
-    y -= 7;
+    if (!atTop()) y -= S.gap;
+    y -= S.lh;
+    draw(title.toUpperCase(), M, y + 3, S.size, bold, headInk);
+    y -= S.ruleGap;
+    rule(S.rule);
+    y -= S.after;
   };
 
-  const TITLE = { size: 10.5, lh: 14 };
-  const SUB = { size: 10, lh: 13.5 };
-  const BUL = { size: 10, lh: 13.5, indent: 11 };
+  const TITLE = L.title;
+  const SUB = L.sub;
+  const BUL = L.bul;
+  const subFont = italic; // the serif template sets company / institute lines in italic
+  const rightFont = italic;
 
   const prepare = (e: EntrySpec) => {
     const right = e.right?.trim() ? pdfSafe(e.right.trim()) : "";
-    const rightW = right ? font.widthOfTextAtSize(right, 9.5) : 0;
+    const rightW = right ? rightFont.widthOfTextAtSize(right, L.right) : 0;
     const rightInline = rightW > 0 && rightW < CW * 0.4;
     const reserve = rightInline ? rightW + 14 : 0;
     const titleLines = e.title.trim() ? wrap(e.title, bold, TITLE.size, CW - reserve) : [];
     const subText = rightInline || !right ? e.sub ?? "" : joinParts([e.sub ?? "", right], "  |  ");
-    const subLines = subText.trim() ? wrap(subText, font, SUB.size, CW - (titleLines.length ? 0 : reserve)) : [];
+    const subLines = subText.trim() ? wrap(subText, subFont, SUB.size, CW - (titleLines.length ? 0 : reserve)) : [];
     const bullets = e.bullets.map((b) => wrap(b, font, BUL.size, CW - BUL.indent));
     const headH = titleLines.length * TITLE.lh + subLines.length * SUB.lh + 4;
     const firstH = bullets[0] ? Math.min(bullets[0].length, 3) * BUL.lh : 0;
@@ -543,15 +647,15 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
       const base = nextLine(TITLE.lh);
       draw(l, M, base, TITLE.size, bold, ink);
       if (!rightDone) {
-        drawRight(e.right, M + CW, base, 9.5, font, muted);
+        drawRight(e.right, M + CW, base, L.right, rightFont, muted);
         rightDone = true;
       }
     });
     e.subLines.forEach((l) => {
       const base = nextLine(SUB.lh);
-      draw(l, M, base, SUB.size, font, subInk);
+      draw(l, M, base, SUB.size, subFont, subInk);
       if (!rightDone) {
-        drawRight(e.right, M + CW, base, 9.5, font, muted);
+        drawRight(e.right, M + CW, base, L.right, rightFont, muted);
         rightDone = true;
       }
     });
@@ -565,7 +669,7 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
     });
   };
 
-  const paragraph = (text: string, size = 10, lh = 14) => {
+  const paragraph = (text: string, size = L.para.size, lh = L.para.lh) => {
     for (const l of wrap(text, font, size, CW)) {
       const base = nextLine(lh);
       draw(l, M, base, size, font, ink);
@@ -576,12 +680,12 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
     const prepared = specs.filter((s) => s.title.trim() || s.sub?.trim() || s.right?.trim() || s.bullets.length).map(prepare);
     if (!prepared.length) return;
     section(title, prepared[0].keep + 4);
-    prepared.forEach((e, i) => drawEntry(e, i === 0 ? 2 : 8));
+    prepared.forEach((e, i) => drawEntry(e, i === 0 ? 2 : L.entryGap));
   };
 
   /* ---------------- sections ---------------- */
   if (cv.summary.trim()) {
-    section("Summary", 2 * 14);
+    section("Summary", 2 * L.para.lh);
     y -= 2;
     paragraph(cv.summary);
   }
@@ -617,28 +721,38 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
 
   const skills = skillLines(cv.skills);
   if (skills.length) {
-    section("Skills", 2 * 14);
+    section("Skills", 2 * L.para.lh);
     y -= 2;
-    for (const s of skills) {
-      const label = s.group ? pdfSafe(`${s.group}: `) : "";
-      const labelW = label ? bold.widthOfTextAtSize(label, 10) : 0;
-      if (label && labelW < CW * 0.5) {
-        wrap(s.items, font, 10, CW, CW - labelW).forEach((l, i) => {
-          const base = nextLine(14);
-          if (i === 0) draw(label, M, base, 10, bold, ink);
-          draw(l, M + (i === 0 ? labelW : 0), base, 10, font, ink);
-        });
-      } else paragraph(s.group ? `${s.group}: ${s.items}` : s.items);
+    if (tpl === "compact") {
+      // one dense, wrapped line: "Group: a, b  •  Group: c, d"
+      paragraph(compactSkills(skills));
+    } else {
+      const size = L.para.size;
+      for (const s of skills) {
+        const label = s.group ? pdfSafe(`${s.group}: `) : "";
+        const labelW = label ? bold.widthOfTextAtSize(label, size) : 0;
+        if (label && labelW < CW * 0.5) {
+          wrap(s.items, font, size, CW, CW - labelW).forEach((l, i) => {
+            const base = nextLine(L.para.lh);
+            if (i === 0) draw(label, M, base, size, bold, ink);
+            draw(l, M + (i === 0 ? labelW : 0), base, size, font, ink);
+          });
+        } else paragraph(s.group ? `${s.group}: ${s.items}` : s.items);
+      }
     }
   }
 
   listSection(
     "Certifications",
-    cv.certifications.map((c) => ({ title: c.name, right: c.year, sub: c.issuer, bullets: [] })),
+    cv.certifications.map((c) =>
+      tpl === "compact"
+        ? { title: joinParts([c.name, c.issuer], " — "), right: c.year, bullets: [] }
+        : { title: c.name, right: c.year, sub: c.issuer, bullets: [] },
+    ),
   );
 
   if (cv.languages.trim()) {
-    section("Languages", 14);
+    section("Languages", L.para.lh);
     y -= 2;
     paragraph(cv.languages);
   }
@@ -648,7 +762,7 @@ async function buildCvPdf(cv: Cv): Promise<Uint8Array> {
   if (pages.length > 1) {
     pages.forEach((pg, i) => {
       const label = pdfSafe(`${name ? `${name} — ` : ""}Page ${i + 1} of ${pages.length}`);
-      pg.drawText(label, { x: M + CW - font.widthOfTextAtSize(label, 8), y: M / 2 - 3, size: 8, font, color: muted });
+      pg.drawText(label, { x: M + CW - font.widthOfTextAtSize(label, 8), y: BOTTOM / 2 - 3, size: 8, font, color: muted });
     });
   }
 
@@ -918,25 +1032,27 @@ export default function CvStudio({ tool }: { tool: Tool }) {
         <div className="glass @container rounded-[26px] p-4 sm:p-6">
           {/* template */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[220px] flex-1 gap-2" role="radiogroup" aria-label="Template">
-              {(["classic", "modern"] as const).map((t) => (
+            <div className="grid min-w-[220px] flex-1 grid-cols-2 gap-2 @lg:grid-cols-4" role="radiogroup" aria-label="Template">
+              {TEMPLATES.map((t) => (
                 <button
-                  key={t}
+                  key={t.id}
                   type="button"
                   role="radio"
-                  aria-checked={cv.template === t}
-                  onClick={() => setField("template", t)}
-                  className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold capitalize transition-all ${
-                    cv.template === t
+                  aria-checked={cv.template === t.id}
+                  onClick={() => setField("template", t.id)}
+                  title={t.hint}
+                  className={`rounded-xl px-3 py-2 text-left transition-all ${
+                    cv.template === t.id
                       ? "bg-gradient-to-r from-brand-500 to-accent-500 text-white shadow-lg shadow-brand-500/25"
                       : "surface text-muted hover:text-[var(--fg)]"
                   }`}
                 >
-                  {t}
+                  <span className="block text-sm font-bold">{t.label}</span>
+                  <span className={`block truncate text-[11px] ${cv.template === t.id ? "text-white/80" : "text-muted"}`}>{t.hint}</span>
                 </button>
               ))}
             </div>
-            {cv.template === "modern" && (
+            {cv.template !== "classic" && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold" id="accent-label">
                   Accent
@@ -1120,7 +1236,7 @@ export default function CvStudio({ tool }: { tool: Tool }) {
 
             {/* =========================== PREVIEW =========================== */}
             <div className="min-w-0 @4xl:sticky @4xl:top-24 @4xl:max-h-[calc(100vh-7rem)] @4xl:self-start @4xl:overflow-y-auto">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Live preview — {cv.template}</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Live preview — {TEMPLATES.find((t) => t.id === cv.template)?.label}</p>
               <CvPreview cv={cv} />
             </div>
           </div>
@@ -1181,14 +1297,60 @@ export default function CvStudio({ tool }: { tool: Tool }) {
  * live preview — mirrors the chosen template
  * ------------------------------------------------------------------ */
 
+/** Preview typography per template — mirrors PDF_LOOKS. */
+const PREVIEW_LOOKS: Record<
+  Template,
+  { root: string; pad: string; heading: string; entry: string; font: string; sub: string; right: string }
+> = {
+  classic: {
+    root: "text-[10.5px] leading-snug sm:text-[11px]",
+    pad: "px-6 pb-6 pt-1",
+    heading: "mb-1.5 mt-3.5 border-b pb-0.5 text-[11px] font-bold uppercase tracking-wider sm:text-xs",
+    entry: "mt-1.5",
+    font: "Helvetica, Arial, sans-serif",
+    sub: "text-zinc-600",
+    right: "text-[10px] text-zinc-500",
+  },
+  modern: {
+    root: "text-[10.5px] leading-snug sm:text-[11px]",
+    pad: "px-6 pb-6 pt-1",
+    heading: "mb-1.5 mt-3.5 border-b pb-0.5 text-[11px] font-bold uppercase tracking-wider sm:text-xs",
+    entry: "mt-1.5",
+    font: "Helvetica, Arial, sans-serif",
+    sub: "text-zinc-600",
+    right: "text-[10px] text-zinc-500",
+  },
+  compact: {
+    root: "text-[9.5px] leading-[1.3] sm:text-[10px]",
+    pad: "px-5 pb-5 pt-0.5",
+    heading: "mb-1 mt-2.5 border-b pb-px text-[10px] font-bold uppercase tracking-wider sm:text-[10.5px]",
+    entry: "mt-1",
+    font: "Helvetica, Arial, sans-serif",
+    sub: "text-zinc-600",
+    right: "text-[9px] text-zinc-500",
+  },
+  professional: {
+    root: "text-[11px] leading-snug sm:text-[11.5px]",
+    pad: "px-7 pb-7 pt-1",
+    heading: "mb-1.5 mt-4 border-b-[0.5px] pb-0.5 text-[11.5px] font-bold uppercase tracking-[0.12em] sm:text-[12px]",
+    entry: "mt-2",
+    font: '"Times New Roman", Times, Georgia, serif',
+    sub: "italic text-zinc-600",
+    right: "text-[10.5px] italic text-zinc-500",
+  },
+};
+
 function CvPreview({ cv }: { cv: Cv }) {
-  const modern = cv.template === "modern";
+  const tpl = cv.template;
+  const look = PREVIEW_LOOKS[tpl] ?? PREVIEW_LOOKS.classic;
+  const modern = tpl === "modern";
+  const coloured = tpl !== "classic";
   const accent = safeAccent(cv.accent);
   const onAccent = isLight(accent) ? "#141418" : "#ffffff";
   const p = cv.personal;
   const contacts = joinParts([p.email, p.phone, p.location, p.linkedin, p.website], "  |  ");
-  const headColor = modern ? (isLight(accent) ? "#141418" : accent) : "#000000";
-  const ruleColor = modern ? accent : "#000000";
+  const headColor = coloured ? (isLight(accent) ? "#141418" : accent) : "#000000";
+  const ruleColor = coloured ? accent : "#000000";
 
   const experience = cv.experience.filter((e) => e.title.trim() || e.company.trim() || e.bullets.trim());
   const education = cv.education.filter((e) => e.degree.trim() || e.institute.trim());
@@ -1199,16 +1361,31 @@ function CvPreview({ cv }: { cv: Cv }) {
   const empty =
     !p.name.trim() && !cv.summary.trim() && !experience.length && !education.length && !skills.length && !projects.length && !certs.length;
 
+  const entryLook = { look, bulletColor: headColor };
+
   return (
-    <div
-      className="overflow-hidden rounded-2xl bg-white text-[10.5px] leading-snug text-zinc-900 shadow-xl sm:text-[11px]"
-      style={{ fontFamily: "Helvetica, Arial, sans-serif" }}
-    >
+    <div className={`overflow-hidden rounded-2xl bg-white text-zinc-900 shadow-xl ${look.root}`} style={{ fontFamily: look.font }}>
       {modern ? (
         <div className="px-6 pb-4 pt-5" style={{ backgroundColor: accent, color: onAccent }}>
           <p className="break-words text-xl font-bold sm:text-2xl">{p.name || "Your Name"}</p>
           {p.headline && <p className="mt-0.5 break-words text-xs sm:text-sm">{p.headline}</p>}
           {contacts && <p className="mt-1.5 break-words text-[10px]">{contacts}</p>}
+        </div>
+      ) : tpl === "compact" ? (
+        <div className="mx-5 border-b-[1.5px] pb-1.5 pt-4" style={{ borderColor: ruleColor }}>
+          <p className="break-words text-lg font-bold leading-tight sm:text-xl">{p.name || "Your Name"}</p>
+          {p.headline && (
+            <p className="break-words text-[10.5px] font-semibold sm:text-[11px]" style={{ color: headColor }}>
+              {p.headline}
+            </p>
+          )}
+          {contacts && <p className="mt-0.5 break-words text-[9px] text-zinc-700">{contacts}</p>}
+        </div>
+      ) : tpl === "professional" ? (
+        <div className="mx-7 border-b-[3px] border-double pb-2.5 pt-6 text-center" style={{ borderColor: ruleColor }}>
+          <p className="break-words text-2xl font-bold sm:text-[28px] sm:leading-tight">{p.name || "Your Name"}</p>
+          {p.headline && <p className="mt-0.5 break-words text-xs italic text-zinc-700 sm:text-sm">{p.headline}</p>}
+          {contacts && <p className="mt-1 break-words text-[10.5px] text-zinc-700">{contacts}</p>}
         </div>
       ) : (
         <div className="mx-6 border-b-2 border-black pb-2.5 pt-5 text-center">
@@ -1218,23 +1395,23 @@ function CvPreview({ cv }: { cv: Cv }) {
         </div>
       )}
 
-      <div className="px-6 pb-6 pt-1">
+      <div className={look.pad}>
         {empty && <p className="mt-4 text-center text-zinc-400">Start filling in the form — or load the sample CV — to see your resume here.</p>}
 
         {cv.summary.trim() && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Summary</PreviewHeading>
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Summary</PreviewHeading>
             <p className="whitespace-pre-line break-words">{cv.summary}</p>
           </>
         )}
 
         {experience.length > 0 && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Experience</PreviewHeading>
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Experience</PreviewHeading>
             {experience.map((e) => (
               <PreviewEntry
                 key={e.id}
-                bulletColor={headColor}
+                {...entryLook}
                 title={e.title}
                 right={dateRange(e.start, e.end, e.current)}
                 sub={joinParts([e.company, e.location])}
@@ -1246,11 +1423,11 @@ function CvPreview({ cv }: { cv: Cv }) {
 
         {education.length > 0 && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Education</PreviewHeading>
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Education</PreviewHeading>
             {education.map((e) => (
               <PreviewEntry
                 key={e.id}
-                bulletColor={headColor}
+                {...entryLook}
                 title={e.degree}
                 right={dateRange(e.start, e.end)}
                 sub={joinParts([joinParts([e.institute, e.location], ", "), e.grade])}
@@ -1261,37 +1438,51 @@ function CvPreview({ cv }: { cv: Cv }) {
 
         {projects.length > 0 && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Projects</PreviewHeading>
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Projects</PreviewHeading>
             {projects.map((e) => (
-              <PreviewEntry bulletColor={headColor} key={e.id} title={e.name} sub={joinParts([e.tech ? `Tech: ${e.tech}` : "", e.link], "  |  ")} bullets={bulletsOf(e.bullets)} />
+              <PreviewEntry
+                key={e.id}
+                {...entryLook}
+                title={e.name}
+                sub={joinParts([e.tech ? `Tech: ${e.tech}` : "", e.link], "  |  ")}
+                bullets={bulletsOf(e.bullets)}
+              />
             ))}
           </>
         )}
 
         {skills.length > 0 && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Skills</PreviewHeading>
-            {skills.map((s, i) => (
-              <p key={i} className="break-words">
-                {s.group && <span className="font-bold">{s.group}: </span>}
-                {s.items}
-              </p>
-            ))}
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Skills</PreviewHeading>
+            {tpl === "compact" ? (
+              <p className="break-words">{compactSkills(skills)}</p>
+            ) : (
+              skills.map((s, i) => (
+                <p key={i} className="break-words">
+                  {s.group && <span className="font-bold">{s.group}: </span>}
+                  {s.items}
+                </p>
+              ))
+            )}
           </>
         )}
 
         {certs.length > 0 && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Certifications</PreviewHeading>
-            {certs.map((c) => (
-              <PreviewEntry bulletColor={headColor} key={c.id} title={c.name} right={c.year} sub={c.issuer} />
-            ))}
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Certifications</PreviewHeading>
+            {certs.map((c) =>
+              tpl === "compact" ? (
+                <PreviewEntry key={c.id} {...entryLook} title={joinParts([c.name, c.issuer], " — ")} right={c.year} />
+              ) : (
+                <PreviewEntry key={c.id} {...entryLook} title={c.name} right={c.year} sub={c.issuer} />
+              ),
+            )}
           </>
         )}
 
         {cv.languages.trim() && (
           <>
-            <PreviewHeading color={headColor} rule={ruleColor}>Languages</PreviewHeading>
+            <PreviewHeading look={look} color={headColor} rule={ruleColor}>Languages</PreviewHeading>
             <p className="break-words">{cv.languages}</p>
           </>
         )}
@@ -1300,24 +1491,25 @@ function CvPreview({ cv }: { cv: Cv }) {
   );
 }
 
-function PreviewHeading({ color, rule, children }: { color: string; rule: string; children: ReactNode }) {
+type PreviewLook = (typeof PREVIEW_LOOKS)[Template];
+
+function PreviewHeading({ look, color, rule, children }: { look: PreviewLook; color: string; rule: string; children: ReactNode }) {
   return (
-    <h3
-      className="mb-1.5 mt-3.5 border-b pb-0.5 text-[11px] font-bold uppercase tracking-wider sm:text-xs"
-      style={{ color, borderColor: rule }}
-    >
+    <h3 className={look.heading} style={{ color, borderColor: rule }}>
       {children}
     </h3>
   );
 }
 
 function PreviewEntry({
+  look,
   title,
   right,
   sub,
   bullets,
   bulletColor,
 }: {
+  look: PreviewLook;
   title: string;
   right?: string;
   sub?: string;
@@ -1325,12 +1517,12 @@ function PreviewEntry({
   bulletColor: string;
 }) {
   return (
-    <div className="mt-1.5">
+    <div className={look.entry}>
       <div className="flex items-baseline justify-between gap-3">
         <p className="min-w-0 break-words font-bold">{title}</p>
-        {right && <p className="shrink-0 text-[10px] text-zinc-500">{right}</p>}
+        {right && <p className={`shrink-0 ${look.right}`}>{right}</p>}
       </div>
-      {sub && <p className="break-words text-zinc-600">{sub}</p>}
+      {sub && <p className={`break-words ${look.sub}`}>{sub}</p>}
       {bullets && bullets.length > 0 && (
         <ul className="mt-0.5 space-y-0.5">
           {bullets.map((b, i) => (

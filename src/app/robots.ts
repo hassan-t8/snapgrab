@@ -9,7 +9,8 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         // /api/og is the social preview renderer — crawlers must be able to fetch it
         allow: ["/", "/api/og"],
-        disallow: ["/admin", "/api/"],
+        // /go/ = sponsored redirects; /m$ = QR menus (data lives in the link; "$" so /manifest… stays crawlable)
+        disallow: ["/admin", "/api/", "/go/", "/m$"],
       },
     ],
     sitemap: `${SITE}/sitemap.xml`,

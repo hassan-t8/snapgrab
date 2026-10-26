@@ -7,6 +7,7 @@ import { Plus, Trash2 } from "lucide-react";
 import type { Tool } from "@/lib/tools";
 import { notify } from "@/components/Toaster";
 import ShareSheet from "@/components/ShareSheet";
+import LeadForm from "@/components/LeadForm";
 import { trackEvent } from "@/lib/track-event";
 
 /* ------------------------------------------------------------------ *
@@ -2305,6 +2306,23 @@ function SolarLoad({ slug }: { slug: string }) {
         usable depth. Motors (pumps, ACs, fridges) draw 3–5× their rating for a moment when starting — a qualified installer
         should confirm the final design.
       </p>
+      {peakW > 0 && (
+        <div className="mt-5">
+          <LeadForm
+            kind="solar"
+            title="Get a free solar quote for this system"
+            subtitle="A local solar installer will call you with a price for this setup — free, no obligation."
+            details={{
+              "Peak load": `${fmt(peakW, 0)} W`,
+              "Units per month": fmt(monthlyUnits, 0),
+              Inverter: `${inverterKva} kVA`,
+              Panels: `${fmt(solarKw, 1)} kW (${panels} × ${num(panelW)} W)`,
+              Battery: `${fmt(batteryKwh, 1)} kWh for ${num(backup)} h`,
+              Appliances: items.map((a) => `${a.qty}× ${a.name}`).join(", ").slice(0, 300),
+            }}
+          />
+        </div>
+      )}
     </>
   );
 }
@@ -2485,6 +2503,342 @@ function Calories({ slug }: { slug: string }) {
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * Merit / aggregate calculator (MDCAT, ECAT, NUST … weights editable)
+ * ------------------------------------------------------------------ */
+
+type AggPart = { label: string; obtained: string; total: string; weight: string };
+
+const AGG_PRESETS: { id: string; label: string; note: string; parts: { label: string; total: number; weight: number }[] }[] = [
+  {
+    id: "mdcat",
+    label: "MDCAT (medical)",
+    note: "Commonly Matric 10% + FSc 40% + MDCAT 50%.",
+    parts: [
+      { label: "Matric / SSC", total: 1200, weight: 10 },
+      { label: "FSc / HSSC", total: 1200, weight: 40 },
+      { label: "MDCAT", total: 200, weight: 50 },
+    ],
+  },
+  {
+    id: "ecat",
+    label: "ECAT (UET engineering)",
+    note: "Commonly Matric 17% + FSc 50% + ECAT 33%.",
+    parts: [
+      { label: "Matric / SSC", total: 1200, weight: 17 },
+      { label: "FSc / HSSC", total: 1100, weight: 50 },
+      { label: "ECAT", total: 400, weight: 33 },
+    ],
+  },
+  {
+    id: "nust",
+    label: "NUST (NET)",
+    note: "Commonly Matric 10% + FSc 15% + NET 75%.",
+    parts: [
+      { label: "Matric / SSC", total: 1200, weight: 10 },
+      { label: "FSc / HSSC", total: 1100, weight: 15 },
+      { label: "NET", total: 200, weight: 75 },
+    ],
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    note: "Enter the weights from your university's prospectus.",
+    parts: [
+      { label: "Matric / SSC", total: 1200, weight: 10 },
+      { label: "Intermediate", total: 1200, weight: 40 },
+      { label: "Entry test", total: 100, weight: 50 },
+    ],
+  },
+];
+
+const presetParts = (id: string): AggPart[] =>
+  (AGG_PRESETS.find((p) => p.id === id) ?? AGG_PRESETS[0]).parts.map((p) => ({ label: p.label, obtained: "", total: String(p.total), weight: String(p.weight) }));
+
+function Aggregate({ slug }: { slug: string }) {
+  const [preset, setPreset] = useState("mdcat");
+  const [parts, setParts] = useState<AggPart[]>(() => presetParts("mdcat"));
+  const update = (i: number, key: keyof AggPart, v: string) => setParts((ps) => ps.map((p, j) => (j === i ? { ...p, [key]: v } : p)));
+
+  const weightSum = parts.reduce((n, p) => n + num(p.weight), 0);
+  const filled = parts.every((p) => num(p.total) > 0 && p.obtained.trim() !== "");
+  const aggregate = parts.reduce((n, p) => n + (num(p.total) ? (Math.min(num(p.obtained), num(p.total)) / num(p.total)) * num(p.weight) : 0), 0);
+  useTrackOnce(slug, filled);
+  const info = AGG_PRESETS.find((p) => p.id === preset)!;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {AGG_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => {
+              setPreset(p.id);
+              setParts(presetParts(p.id));
+            }}
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${preset === p.id ? "bg-gradient-to-r from-brand-500 to-accent-500 text-white" : "surface text-muted"}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-muted">{info.note} Formulas change — always confirm with the current admission prospectus. You can edit every weight.</p>
+
+      <div className="mt-4 space-y-3">
+        {parts.map((p, i) => (
+          <div key={i} className="grid grid-cols-3 gap-2 rounded-2xl bg-[var(--bg-soft)] p-3 sm:grid-cols-[1.4fr_1fr_1fr_0.8fr]">
+            <input value={p.label} onChange={(e) => update(i, "label", e.target.value)} aria-label="Part name" className={`${field} col-span-3 font-semibold sm:col-span-1`} />
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-muted">Obtained</span>
+              <input value={p.obtained} onChange={(e) => update(i, "obtained", e.target.value)} inputMode="decimal" className={field} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-muted">Total</span>
+              <input value={p.total} onChange={(e) => update(i, "total", e.target.value)} inputMode="decimal" className={field} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold text-muted">Weight %</span>
+              <input value={p.weight} onChange={(e) => update(i, "weight", e.target.value)} inputMode="decimal" className={field} />
+            </label>
+          </div>
+        ))}
+      </div>
+      {weightSum !== 100 && <p className="mt-2 text-xs text-amber-400">Weights add up to {fmt(weightSum, 1)}% — they should total 100%.</p>}
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="Your aggregate" value={filled ? `${fmt(aggregate, 4)}%` : "Fill in your marks"} strong />
+        <div className="rounded-2xl surface p-4 text-xs text-muted">
+          {parts.map((p) => (
+            <p key={p.label}>
+              {p.label}: {num(p.total) ? fmt((Math.min(num(p.obtained), num(p.total)) / num(p.total)) * num(p.weight), 3) : 0} of {num(p.weight)}
+            </p>
+          ))}
+        </div>
+      </div>
+      {filled && (
+        <div className="mt-4">
+          <ShareSheet title="My aggregate" text={`My ${info.label} aggregate is ${fmt(aggregate, 3)}% — calculate yours on SnapGrab`} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Matric / Inter percentage & grade + board result links
+ * ------------------------------------------------------------------ */
+
+const GRADE_SCALES = {
+  classic: {
+    label: "Classic (A+ to E)",
+    bands: [
+      [80, "A+", "Exceptional"], [70, "A", "Excellent"], [60, "B", "Very good"], [50, "C", "Good"], [40, "D", "Fair"], [33, "E", "Pass"], [0, "F", "Fail"],
+    ] as [number, string, string][],
+  },
+  ibcc: {
+    label: "New IBCC scale (A++ to E)",
+    bands: [
+      [95, "A++", "Exceptional"], [90, "A+", "Outstanding"], [85, "A", "Excellent"], [80, "B++", "Very good"], [75, "B+", "Good"], [70, "B", "Fairly good"],
+      [60, "C+", "Above average"], [50, "C", "Average"], [40, "D", "Satisfactory"], [33, "E", "Pass"], [0, "U", "Ungraded"],
+    ] as [number, string, string][],
+  },
+};
+
+const BOARDS: { name: string; url: string }[] = [
+  { name: "FBISE Islamabad", url: "https://www.fbise.edu.pk" },
+  { name: "BISE Lahore", url: "https://www.biselahore.com" },
+  { name: "BISE Gujranwala", url: "https://www.bisegrw.edu.pk" },
+  { name: "BISE Faisalabad", url: "http://www.bisefsd.edu.pk" },
+  { name: "BISE Rawalpindi", url: "http://www.biserwp.edu.pk" },
+  { name: "BISE Multan", url: "https://www.bisemultan.edu.pk" },
+  { name: "BISE Bahawalpur", url: "https://bisebwp.edu.pk" },
+  { name: "BISE Sargodha", url: "https://www.bisesargodha.edu.pk" },
+  { name: "BISE DG Khan", url: "https://www.bisedgkhan.edu.pk" },
+  { name: "BISE Sahiwal", url: "https://www.bisesahiwal.edu.pk" },
+  { name: "BISE Peshawar", url: "https://www.bisep.edu.pk" },
+  { name: "BISE Mardan", url: "https://www.bisemdn.edu.pk" },
+  { name: "BISE Abbottabad", url: "https://www.biseatd.edu.pk" },
+  { name: "BISE Malakand", url: "https://www.bisemalakand.edu.pk" },
+  { name: "BSEK Karachi (Matric)", url: "https://bsek.edu.pk" },
+  { name: "BIEK Karachi (Inter)", url: "https://biek.edu.pk" },
+  { name: "BISE Sukkur", url: "https://www.bisesuksindh.edu.pk" },
+  { name: "BISE Larkana", url: "https://biselrk.edu.pk" },
+  { name: "BBISE Quetta", url: "https://bbise.edu.pk" },
+];
+
+function MatricGrade({ slug }: { slug: string }) {
+  const [obtained, setObtained] = useState("");
+  const [total, setTotal] = useState("1100");
+  const [scale, setScale] = useState<keyof typeof GRADE_SCALES>("classic");
+  const pct = num(total) ? (Math.min(num(obtained), num(total)) / num(total)) * 100 : 0;
+  const band = GRADE_SCALES[scale].bands.find(([min]) => pct >= min) ?? GRADE_SCALES[scale].bands.at(-1)!;
+  const ok = obtained.trim() !== "" && num(total) > 0;
+  useTrackOnce(slug, ok);
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <Field label="Marks obtained" value={obtained} onChange={setObtained} placeholder="e.g. 945" />
+        <Field label="Total marks" value={total} onChange={setTotal} hint="Matric 1100/1200 · Inter 1100/1200" />
+        <Toggle
+          value={scale}
+          onChange={setScale}
+          options={[
+            { value: "classic", label: "A+ to E" },
+            { value: "ibcc", label: "IBCC A++" },
+          ]}
+        />
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <Stat label="Percentage" value={ok ? `${fmt(pct, 2)}%` : "—"} strong />
+        <Stat label="Grade" value={ok ? band[1] : "—"} />
+        <Stat label="Remarks" value={ok ? band[2] : "—"} />
+      </div>
+      <p className="mt-3 text-xs text-muted">
+        {GRADE_SCALES[scale].label}. Boards are moving to IBCC&apos;s new grading — the grade on your result card is final.
+      </p>
+      {ok && (
+        <div className="mt-4">
+          <ShareSheet title="My result" text={`I got ${fmt(pct, 2)}% (${band[1]}) — check your percentage and grade on SnapGrab`} />
+        </div>
+      )}
+
+      <h3 className="mt-6 text-sm font-bold">Official board result websites</h3>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {BOARDS.map((b) => (
+          <a
+            key={b.url}
+            href={b.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="flex items-center justify-between rounded-xl surface px-3 py-2 text-sm transition-colors hover:border-brand-400/60 hover:text-brand-400"
+          >
+            {b.name}
+            <span className="text-xs text-muted">↗</span>
+          </a>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted">Results are announced by each board on its own website; links open the board&apos;s official site.</p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Electricity units & bill estimator (no hard-coded tariffs)
+ * ------------------------------------------------------------------ */
+
+function ElectricityBill({ slug }: { slug: string }) {
+  const [prev, setPrev] = useState("");
+  const [curr, setCurr] = useState("");
+  const [days, setDays] = useState("");
+  const [lastBill, setLastBill] = useState("");
+  const [lastUnits, setLastUnits] = useState("");
+  const [rateDirect, setRateDirect] = useState("");
+
+  const units = Math.max(0, num(curr) - num(prev));
+  const projected = num(days) > 0 ? (units / num(days)) * 30 : units;
+  const rate = num(rateDirect) || (num(lastUnits) ? num(lastBill) / num(lastUnits) : 0);
+  const estimate = projected * rate;
+  useTrackOnce(slug, units > 0);
+
+  return (
+    <>
+      <p className="mb-1.5 text-sm font-semibold">1. Units from your meter</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Previous reading (on last bill)" value={prev} onChange={setPrev} placeholder="e.g. 15230" />
+        <Field label="Reading today" value={curr} onChange={setCurr} placeholder="e.g. 15410" />
+        <Field label="Days since that reading" value={days} onChange={setDays} placeholder="e.g. 18" hint="To project the full month." />
+      </div>
+      <p className="mb-1.5 mt-5 text-sm font-semibold">2. Your rate</p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Last bill total (Rs)" value={lastBill} onChange={setLastBill} placeholder="e.g. 9800" />
+        <Field label="Units on last bill" value={lastUnits} onChange={setLastUnits} placeholder="e.g. 210" />
+        <Field label="…or rate per unit (Rs)" value={rateDirect} onChange={setRateDirect} placeholder="Optional" hint="Includes taxes if you use your bill's average." />
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="Units used so far" value={`${fmt(units, 0)} units`} strong />
+        <Stat label="Projected for 30 days" value={`${fmt(projected, 0)} units`} />
+        <Stat label="Average rate" value={rate ? `Rs ${fmt(rate, 2)} / unit` : "Enter last bill"} />
+        <Stat label="Estimated bill" value={rate ? rs(estimate) : "—"} />
+      </div>
+      <p className="mt-4 text-xs text-muted">
+        Uses your own bill&apos;s average rate (bill ÷ units), so taxes and adjustments are already included. Tariff slabs mean
+        crossing 200 or 300 units can raise the rate sharply — keep an eye on the projection. Want to cut units? Try the{" "}
+        <Link href="/tools/solar-load-calculator" className="underline hover:text-brand-400">
+          Solar &amp; load calculator
+        </Link>
+        .
+      </p>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Plot / property area & price
+ * ------------------------------------------------------------------ */
+
+const MARLA_STD = { "225": "225 sq ft (most housing societies)", "250": "250 sq ft", "272.25": "272.25 sq ft (revenue records)" } as const;
+
+function Plot({ slug }: { slug: string }) {
+  const [len, setLen] = useState("35");
+  const [wid, setWid] = useState("70");
+  const [marlaFt, setMarlaFt] = useState<keyof typeof MARLA_STD>("225");
+  const [price, setPrice] = useState("");
+  const [per, setPer] = useState<"marla" | "sqft" | "total">("marla");
+
+  const sqft = num(len) * num(wid);
+  const marla = sqft / Number(marlaFt);
+  const total = per === "marla" ? marla * num(price) : per === "sqft" ? sqft * num(price) : num(price);
+  useTrackOnce(slug, sqft > 0);
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Length (feet)" value={len} onChange={setLen} />
+        <Field label="Width (feet)" value={wid} onChange={setWid} />
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold">1 marla =</span>
+          <select value={marlaFt} onChange={(e) => setMarlaFt(e.target.value as keyof typeof MARLA_STD)} className={field}>
+            {Object.entries(MARLA_STD).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <Stat label="Plot size" value={`${fmt(marla, 2)} marla · ${fmt(marla / 20, 3)} kanal`} strong />
+        <Stat label="Area" value={`${fmt(sqft, 0)} sq ft · ${fmt(sqft / 9, 1)} sq yd · ${fmt(sqft * 0.092903, 1)} m²`} />
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <Field label="Price (Rs)" value={price} onChange={setPrice} placeholder="e.g. 3500000" />
+        <Toggle
+          value={per}
+          onChange={setPer}
+          options={[
+            { value: "marla", label: "per marla" },
+            { value: "sqft", label: "per sq ft" },
+            { value: "total", label: "total" },
+          ]}
+        />
+      </div>
+      {num(price) > 0 && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Stat label="Total price" value={rs(total)} strong />
+          <Stat label="Per marla" value={rs(marla ? total / marla : 0)} />
+          <Stat label="Per sq ft" value={rs(sqft ? total / sqft : 0)} />
+        </div>
+      )}
+      <p className="mt-4 text-xs text-muted">
+        A marla is 225 sq ft in most housing societies (DHA, Bahria and others) but 272.25 sq ft in old revenue records — check
+        which one your file uses. 1 kanal = 20 marla. Transfer taxes and fees are not included.
+      </p>
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 export default function CalculatorStudio({ tool }: { tool: Tool }) {
@@ -2510,6 +2864,10 @@ export default function CalculatorStudio({ tool }: { tool: Tool }) {
     "solar-load": <SolarLoad slug={slug} />,
     fuel: <Fuel slug={slug} />,
     calories: <Calories slug={slug} />,
+    aggregate: <Aggregate slug={slug} />,
+    "matric-grade": <MatricGrade slug={slug} />,
+    "electricity-bill": <ElectricityBill slug={slug} />,
+    plot: <Plot slug={slug} />,
   };
 
   return (

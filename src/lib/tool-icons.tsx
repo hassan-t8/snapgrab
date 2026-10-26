@@ -65,6 +65,9 @@ import {
   Timer,
   Dices,
   Sparkles,
+  Medal,
+  Zap,
+  LandPlot,
   type LucideIcon,
 } from "lucide-react";
 import type { Tool, ToolCategory } from "./tools";
@@ -139,6 +142,10 @@ const BY_SLUG: Record<string, LucideIcon> = {
   "tasbeeh-counter": CircleDot,
   "online-timer": Timer,
   "spin-the-wheel": Dices,
+  "aggregate-calculator": Medal,
+  "matric-percentage-calculator": GraduationCap,
+  "electricity-bill-calculator": Zap,
+  "plot-size-calculator": LandPlot,
 };
 
 const BY_CATEGORY: Record<ToolCategory, LucideIcon> = {
@@ -148,6 +155,9 @@ const BY_CATEGORY: Record<ToolCategory, LucideIcon> = {
   Calculators: Calculator,
   Text: Type,
   Everyday: Sparkles,
+  Islamic: Moon,
+  Education: GraduationCap,
+  Creative: Palette,
   Generators: Palette,
   Audio: Music,
   Video,

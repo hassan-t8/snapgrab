@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import PageTracker from "@/components/PageTracker";
 import ClickTracker from "@/components/ClickTracker";
 import ToolSearch from "@/components/ToolSearch";
+import PwaInstall from "@/components/PwaInstall";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import Script from "next/script";
 import { connection } from "next/server";
@@ -53,6 +54,7 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       <ClickTracker />
       {/* outside the sticky header: its backdrop-filter would trap a fixed overlay */}
       <ToolSearch services={services} />
+      <PwaInstall />
     </AdsProvider>
   );
 }

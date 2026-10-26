@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { getEnabledPlatforms, getEnabledTools } from "@/lib/services";
+import { RATE_PAGES } from "@/lib/rates";
 
 // read the service toggles on each request, so a tool switched off in admin leaves the sitemap at once
 export const dynamic = "force-dynamic";
@@ -34,6 +35,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.9,
+    })),
+    ...["/rates", ...Object.values(RATE_PAGES).map((p) => `/rates/${p.slug}`)].map((path) => ({
+      url: `${SITE}${path}`,
+      lastModified: new Date(),
+      changeFrequency: "daily" as const,
+      priority: 0.8,
     })),
     ...posts.map((p) => ({
       url: `${SITE}/blog/${p.slug}`,

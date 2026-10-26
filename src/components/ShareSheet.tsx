@@ -38,6 +38,8 @@ export default function ShareSheet({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // open the menu towards the side with room, so it never runs off a phone screen
+  const [alignLeft, setAlignLeft] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +76,8 @@ export default function ShareSheet({
         setBusy(false);
       }
     }
+    const rect = box.current?.getBoundingClientRect();
+    if (rect) setAlignLeft(rect.right < 272);
     setOpen((v) => !v);
   }
 
@@ -146,7 +150,7 @@ export default function ShareSheet({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.14 }}
-            className="glass absolute bottom-full right-0 z-50 mb-2 w-64 rounded-2xl border border-[var(--line)] p-2 shadow-2xl sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2"
+            className={`glass absolute bottom-full ${alignLeft ? "left-0" : "right-0"} z-50 mb-2 w-64 rounded-2xl border border-[var(--line)] p-2 shadow-2xl sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2`}
           >
             <div className="grid grid-cols-3 gap-1">
               {channels.map((c) => (

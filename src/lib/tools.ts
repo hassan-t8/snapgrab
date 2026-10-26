@@ -1,9 +1,12 @@
 import { QUOTA_PROVIDERS, type CostTier, type ProviderId } from "./quota-providers";
+import { EXTRA_TOOLS } from "./tools-extra";
 
 export type ToolEngine =
-  | "image" | "photo" | "print" | "image-ai" | "utility" | "pdf" | "pdf-pages" | "text" | "generate" | "calc" | "doc" | "link-audio" | "link-video";
+  | "image" | "photo" | "print" | "image-ai" | "utility" | "pdf" | "pdf-pages" | "text" | "generate" | "calc" | "doc" | "link-audio" | "link-video"
+  | "forms" | "collage" | "pdf-compress" | "quran" | "names" | "countdown" | "cards" | "video" | "career" | "menu";
 
-export type ToolCategory = "Image" | "Print" | "PDF" | "Calculators" | "Text" | "Everyday" | "Generators" | "Audio" | "Video";
+export type ToolCategory =
+  | "Image" | "Print" | "PDF" | "Calculators" | "Islamic" | "Education" | "Text" | "Creative" | "Everyday" | "Generators" | "Audio" | "Video";
 
 export type Tool = {
   slug: string;
@@ -29,7 +32,11 @@ export type Tool = {
     | "id-card-print" | "photo-print" | "ocr" | "remove-bg" | "signature" | "crop-image"
     | "hijri" | "ramadan" | "date-diff" | "discount" | "typing-test"
     | "gold" | "solar-load" | "fuel" | "calories"
-    | "urdu-keyboard" | "voice-typing" | "text-to-speech" | "tasbeeh" | "timer" | "spin-wheel";
+    | "urdu-keyboard" | "voice-typing" | "text-to-speech" | "tasbeeh" | "timer" | "spin-wheel"
+    | "aggregate" | "matric-grade" | "electricity-bill" | "plot"
+    // modes of the studios built in src/components/tools (forms, collage, pdf-compress, quran, names,
+    // countdown, cards, video, career, menu); registered from src/lib/tools-extra/*
+    | (string & {});
   accept?: string;
   inputs: string[];
   outputs: string[];
@@ -940,7 +947,7 @@ export const TOOLS: Tool[] = [
     name: "Zakat Calculator",
     headline: "Zakat Calculator — work out your Zakat on cash, gold and savings",
     title: "Zakat Calculator — cash, gold & savings",
-    category: "Calculators",
+    category: "Islamic",
     tagline: "2.5% Zakat on wealth above the Nisab",
     description:
       "Calculate the Zakat you owe in a minute. Add your cash, bank balance, gold, silver, business stock and money owed to you, subtract what you owe, and see whether you are above the Nisab and how much Zakat to pay.",
@@ -1036,7 +1043,7 @@ export const TOOLS: Tool[] = [
     name: "GPA & CGPA Calculator",
     headline: "GPA & CGPA Calculator — semester GPA and cumulative CGPA on a 4.0 scale",
     title: "GPA & CGPA Calculator (4.0 scale)",
-    category: "Calculators",
+    category: "Education",
     tagline: "Semester GPA and overall CGPA (4.0 scale)",
     description:
       "Calculate your semester GPA from course grades and credit hours, then your cumulative CGPA across all semesters. Uses the 4.0 grading scale followed by most universities in Pakistan.",
@@ -1418,7 +1425,7 @@ export const TOOLS: Tool[] = [
     name: "Prayer Times",
     headline: "Prayer Times Today — Namaz timings for Karachi, Lahore, Islamabad & worldwide",
     title: "Prayer Times Today — Namaz Timings Pakistan",
-    category: "Calculators",
+    category: "Islamic",
     tagline: "Today's Fajr, Dhuhr, Asr, Maghrib and Isha",
     description:
       "Accurate namaz timings for today in Karachi, Lahore, Islamabad and every major Pakistani city, plus the Gulf, UK, Europe and North America. Hanafi or Shafi Asr, a countdown to the next prayer, and the Qibla direction — all calculated on your device.",
@@ -1468,7 +1475,7 @@ export const TOOLS: Tool[] = [
     name: "Qibla Direction Finder",
     headline: "Qibla Direction Finder — find the Qibla from anywhere with a compass",
     title: "Qibla Direction Finder with Compass",
-    category: "Calculators",
+    category: "Islamic",
     tagline: "Exact Qibla bearing from your location",
     description:
       "Find the Qibla direction from your city or exact location. See the bearing in degrees from north, and on a phone use the live compass to turn until the arrow points to the Kaaba in Makkah.",
@@ -1932,7 +1939,7 @@ export const TOOLS: Tool[] = [
     name: "Hijri Date Converter",
     headline: "Hijri Date Converter — Islamic date today & English to Hijri",
     title: "Hijri Date Converter — Islamic Date Today",
-    category: "Calculators",
+    category: "Islamic",
     tagline: "Convert between Islamic and English dates",
     description:
       "Find today's Islamic (Hijri) date, or convert any English date to Hijri and back. Adjust for moon sighting in Pakistan and other countries where the Islamic month often starts a day later.",
@@ -1958,7 +1965,7 @@ export const TOOLS: Tool[] = [
     name: "Ramadan Sehri & Iftar Timetable",
     headline: "Ramadan Timetable 2027 — Sehri & Iftar times for your city",
     title: "Ramadan Timetable 2027 — Sehri & Iftar Times",
-    category: "Calculators",
+    category: "Islamic",
     tagline: "Full 30-day Sehri and Iftar timetable",
     description:
       "Sehri and Iftar times for every day of Ramadan in Karachi, Lahore, Islamabad and cities worldwide. Choose your calculation method, add a caution margin for Sehri, then print or share the timetable.",
@@ -2036,7 +2043,7 @@ export const TOOLS: Tool[] = [
     name: "Typing Speed Test",
     headline: "Typing Speed Test — check your WPM and accuracy",
     title: "Typing Speed Test — Check Your WPM",
-    category: "Text",
+    category: "Education",
     tagline: "1-minute test with live WPM and accuracy",
     description:
       "Test your typing speed in words per minute with a 30-second, 1-minute or 2-minute test. See live speed and accuracy, beat your personal best and share your score.",
@@ -2249,7 +2256,7 @@ export const TOOLS: Tool[] = [
     name: "Digital Tasbeeh Counter",
     headline: "Digital Tasbeeh Counter — online tasbih for dhikr",
     title: "Digital Tasbeeh Counter Online — Tasbih for Dhikr",
-    category: "Everyday",
+    category: "Islamic",
     tagline: "Tap to count your dhikr with targets",
     description:
       "A simple digital tasbeeh: tap anywhere to count SubhanAllah, Alhamdulillah, Allahu Akbar and more, with 33/99/100 targets, gentle vibration, rounds and your totals saved on your phone.",
@@ -2324,9 +2331,14 @@ export const TOOLS: Tool[] = [
   },
 ];
 
+// tools defined in separate files (one per studio) so they can be added without touching this list
+TOOLS.push(...EXTRA_TOOLS);
+
 export const TOOL_MAP: Record<string, Tool> = Object.fromEntries(TOOLS.map((t) => [t.slug, t]));
 
-export const TOOL_CATEGORIES: ToolCategory[] = ["Image", "Print", "PDF", "Calculators", "Text", "Everyday", "Generators", "Audio", "Video"];
+export const TOOL_CATEGORIES: ToolCategory[] = [
+  "Image", "Print", "PDF", "Calculators", "Islamic", "Education", "Text", "Creative", "Everyday", "Generators", "Audio", "Video",
+];
 
 export function toolsByCategory(category: ToolCategory) {
   return TOOLS.filter((t) => t.category === category);

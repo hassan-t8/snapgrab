@@ -65,6 +65,8 @@ export const metadata: Metadata = {
   publisher: NAME,
   authors: [{ name: "Nikamynumlians" }],
   formatDetection: { telephone: false },
+  icons: { apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: NAME, statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

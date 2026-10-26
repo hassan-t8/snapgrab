@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Calculator, Printer, Sparkles, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
+import { ArrowRight, Calculator, GraduationCap, Moon, Printer, Sparkles, FileText, Image as ImageIcon, Music, Palette, ShieldCheck, Type, Video, Wrench, Zap } from "lucide-react";
 import { Aurora, FAQ, SectionHead } from "@/components/sections";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/motion";
 import AdSlot from "@/components/AdSlot";
@@ -9,6 +9,7 @@ import { getEnabledTools } from "@/lib/services";
 import { siteUrl } from "@/lib/seo";
 import { ToolIcon } from "@/lib/tool-icons";
 import { ToolSearchBox } from "@/components/ToolSearch";
+import { MyToolsStrip } from "@/components/MyTools";
 
 export const metadata: Metadata = {
   title: "Free Online Tools — converters, generators and downloaders",
@@ -35,7 +36,7 @@ export const metadata: Metadata = {
   },
 };
 
-const CATEGORY_ICON = { Image: ImageIcon, Print: Printer, PDF: FileText, Calculators: Calculator, Text: Type, Everyday: Sparkles, Generators: Palette, Audio: Music, Video } as const;
+const CATEGORY_ICON = { Image: ImageIcon, Print: Printer, PDF: FileText, Calculators: Calculator, Text: Type, Everyday: Sparkles, Islamic: Moon, Education: GraduationCap, Creative: Palette, Generators: Palette, Audio: Music, Video } as const;
 
 const TOOLS_FAQ = [
   {
@@ -121,6 +122,8 @@ export default async function ToolsIndex({ searchParams }: PageProps<"/tools">) 
           </Reveal>
         </div>
       </section>
+
+      <MyToolsStrip enabled={TOOLS.map((t) => t.slug)} />
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <AdSlot className="h-[90px]" />
